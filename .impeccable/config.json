@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "templates/samples.html"
+        ],
+        "createdAt": "2026-11-09T19:10:14.460Z",
+        "reason": "Claude: #word-image is hidden (class hidden) until JS sets src for a word that has a pictogram; never shown empty"
+      }
+    ]
+  }
+}

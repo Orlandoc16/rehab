@@ -19,3 +19,9 @@ models/
 Thumbs.db
 .vscode/
 .idea/
+
+# Node (solo herramientas de build del CSS)
+node_modules/
+
+# Audios de evaluación (pueden contener voz de pacientes: nunca al repositorio)
+eval_audio/

@@ -90,53 +90,92 @@ sudo apt install ffmpeg
 brew install ffmpeg
 ```
 
-### Paso 5: Ejecutar la Aplicación
+### Paso 5: Crear la cuenta de terapeuta
+
+La app requiere iniciar sesión. Las cuentas se crean en el propio equipo (no hay registro
+desde la web, para que nadie ajeno pueda crearse una en la red de la clínica):
+
+```bash
+python tools/create_therapist.py
+# Cambiar una contraseña (cierra sus sesiones abiertas):
+python tools/create_therapist.py --username ana --reset-password
+```
+
+### Paso 6: Ejecutar la Aplicación
 
 ```bash
 python app.py
 ```
 
-O con uvicorn directamente:
-```bash
-uvicorn app:app --reload --host 0.0.0.0 --port 8000
-```
+Por defecto solo escucha en este equipo (`127.0.0.1`). Para desarrollo con recarga
+automática: `RELOAD=1 python app.py`.
 
-### Paso 6: Abrir en el Navegador
+### Paso 7: Abrir en el Navegador
 
 ```
 http://localhost:8000
 ```
+
+Inicia sesión, elige (o crea) el paciente y empieza. El paciente activo se ve en la
+cabecera; al pulsarlo se cambia.
+
+---
+
+## 🏥 Despliegue en la clínica (red local con HTTPS)
+
+Las tablets necesitan **HTTPS**: sin él, los navegadores bloquean el micrófono y el modo
+sin conexión. La app se queda escuchando solo en el PC de la clínica y **Caddy** la
+publica en la red con HTTPS.
+
+1. **IP fija para el PC** de la clínica (reserva DHCP en el router). Consulta la IP con `ipconfig`.
+2. **Instala Caddy** (https://caddyserver.com/download) y edita `deploy/Caddyfile`:
+   cambia `192.168.1.50` por esa IP.
+3. **Permite el puerto 443** en el Firewall de Windows para Caddy.
+4. **Crea las cuentas** de los terapeutas: `python tools/create_therapist.py`.
+5. **Arranca** la app con `deploy\start_clinic.bat` y, en otra ventana,
+   `caddy run --config deploy\Caddyfile`.
+6. **Instala el certificado de Caddy en cada tablet (una sola vez).** Caddy crea una
+   autoridad certificadora local; en Windows su certificado está en
+   `%AppData%\Caddy\pki\authorities\local\root.crt`. Cópialo a la tablet y:
+   - **Android:** Ajustes → Seguridad → Cifrado y credenciales → Instalar un certificado →
+     Certificado de CA.
+   - **iPad:** abre el archivo (AirDrop o correo) → Ajustes → Perfil descargado → Instalar;
+     después Ajustes → General → Información → Ajustes de confianza de certificados →
+     activa el certificado.
+7. En la tablet abre `https://IP-del-PC`, inicia sesión y, desde el menú del navegador,
+   **"Añadir a pantalla de inicio"**: la app queda instalada y el comunicador funciona
+   aunque falle la red.
+
+> Guarda una copia del archivo `root.crt` y de la carpeta `data/` (la base de datos con los
+> pacientes). La carpeta `data/` contiene datos de salud: no la subas a GitHub ni la
+> compartas.
 
 ---
 
 ## 📁 Estructura del Proyecto
 
 ```
-rehab_voice_2025/
-├── app.py                 # Aplicación principal FastAPI
-├── voice_processor.py     # Procesamiento de voz (Whisper)
-├── database.py            # Base de datos SQLite
-├── game_engine.py         # Sistema de gamificación
-├── requirements.txt       # Dependencias Python
-├── README.md              # Este archivo
-│
-├── static/
-│   ├── css/
-│   │   └── style.css      # Estilos personalizados
-│   ├── js/
-│   │   └── app.js         # JavaScript principal
-│   └── audio/             # Audios generados (TTS)
-│
-├── templates/
-│   ├── index.html         # Página principal
-│   ├── practice.html      # Página de práctica
-│   ├── games.html         # Página de juegos
-│   └── progress.html      # Página de progreso
-│
-├── data/
-│   └── rehab_voice.db     # Base de datos SQLite (se crea automáticamente)
-│
-└── models/                # Modelos de voz (opcional)
+├── app.py                 # Punto de entrada (python app.py / uvicorn app:app)
+├── rehab/                 # Capa web (FastAPI)
+│   ├── main.py            # Crea la aplicación: middlewares, estáticos y routers
+│   ├── settings.py        # Configuración (variables de entorno)
+│   ├── services.py        # Instancias compartidas: base de datos, voz, juegos
+│   ├── security.py        # Sesión obligatoria y paciente activo
+│   ├── schemas.py         # Validación de los cuerpos JSON (Pydantic)
+│   ├── web.py             # Plantillas, estáticos con caché, gzip
+│   └── routers/           # accounts, pages, speech, content, progress, samples
+├── database.py            # Modelos y consultas (SQLAlchemy); PICTOGRAM_IMAGES del comunicador
+├── word_images.py         # Pictograma de cada palabra de práctica
+├── voice_processor.py     # Reconocimiento (Whisper) y puntuación de la pronunciación
+├── piper_tts.py           # Síntesis de voz local (Piper)
+├── game_engine.py         # Puntos, logros y desafíos
+├── auth.py                # Contraseñas, tokens de sesión, límite de intentos
+├── templates/             # base.html, partials/_ui.html (cabecera) y las páginas
+├── static/                # CSS compilado, JS, fuentes, iconos, pictogramas, sw.js
+├── tests/                 # python -m unittest discover -s tests
+├── tools/                 # Cuentas, iconos, pictogramas, evaluación del reconocimiento de voz
+├── deploy/                # Caddyfile y arranque para la red de la clínica
+└── data/                  # Base de datos SQLite (datos de pacientes: fuera de git)
 ```
 
 ---
@@ -175,6 +214,122 @@ rehab_voice_2025/
 - 🕐 **Tiempo**: hoy, mañana, ahora, luego
 - 🏃 **Acciones**: comer, beber, dormir, caminar
 - 💬 **Frases Comunes**: gracias, por favor, buenos días
+
+---
+
+## 🛠️ Desarrollo
+
+### Estilos (Tailwind CSS compilado)
+
+Las plantillas extienden `templates/base.html`, y la cabecera común es la macro
+`site_header` de `templates/partials/_ui.html`. El CSS de Tailwind **se compila**
+(ya no se usa el CDN): la configuración está en `tailwind.config.js` y el resultado,
+`static/css/app.css`, se incluye en el repositorio, así que para ejecutar la app no
+hace falta Node.
+
+Si cambias clases de Tailwind en las plantillas o en `static/js/`, regenera el CSS
+(requiere Node.js):
+
+```bash
+npm install
+npm run build:css     # o: npm run watch:css  mientras desarrollas
+```
+
+Los archivos estáticos se enlazan con `{{ asset('ruta') }}`, que añade un hash del
+contenido (`?v=...`): el navegador los guarda en caché un año y la URL cambia sola
+cuando el archivo cambia.
+
+### Comunicador sin conexión (PWA)
+
+Al abrir cualquier página, el service worker (`static/sw.js`, servido en `/sw.js`) guarda
+el comunicador: página, estilos, fuentes, iconos, configuración y todas las imágenes de
+pictogramas. Si se cae la red o el servidor, el comunicador sigue funcionando:
+
+- las frases ya dichas suenan con la voz guardada;
+- las nuevas usan la voz del propio dispositivo (`speechSynthesis`).
+
+La app se puede instalar en la pantalla de inicio (`static/manifest.webmanifest`).
+Si cambias la lógica de caché, sube la versión `CACHE` en `static/sw.js`.
+
+> Los navegadores solo activan el service worker (y el micrófono) con **HTTPS** o en
+> `localhost`.
+
+### Iconos (Font Awesome reducido)
+
+La app sirve un **subconjunto local** de Font Awesome Free 6.5 (estilo sólido) con solo
+los iconos que usa: `static/vendor/fontawesome/`. Si añades un icono nuevo (en una
+plantilla, en el JS o en un pictograma de la base de datos), regenera el subconjunto;
+el test `IconsTest` avisa si falta alguno:
+
+```bash
+pip install -r requirements-dev.txt
+npm pack @fortawesome/fontawesome-free@6.5.0
+tar -xzf fortawesome-fontawesome-free-6.5.0.tgz
+python tools/build_icons.py --fa-dir package --db data/rehab_voice.db
+```
+
+### Pictogramas (ARASAAC)
+
+Todas las ilustraciones del comunicador son de ARASAAC (`static/pictograms/arasaac/`).
+Cada pictograma se asigna en `PICTOGRAM_IMAGES` (`database.py`); al arrancar, la app
+actualiza las bases de datos existentes. Los conceptos que ARASAAC solo tiene en blanco y
+negro (Hijo, Hija, Nieto, Nieta, Esposo, Esposa, Vecino, Acomodarme) se **componen a color**
+con piezas de ARASAAC y un círculo rojo que marca a la persona:
+
+```bash
+pip install -r requirements-dev.txt
+python tools/compose_pictograms.py          # todos
+python tools/compose_pictograms.py hijo     # solo uno
+```
+
+Para añadir otro, define su composición en `COMPOSITIONS` dentro del script.
+
+Las **palabras de práctica** también tienen su pictograma (`word_images.py`, clave
+`categoría/palabra`). Si la palabra es el mismo concepto que un pictograma del comunicador, usa
+la misma imagen; las palabras abstractas («puedo hacerlo», «desafío») no llevan imagen. Una
+palabra nueva con el mismo texto que una del mapa recibe su imagen automáticamente.
+
+### Muestras de voz reales (evaluar el reconocimiento)
+
+Los audios de `tools/make_eval_set.py` son voces sintéticas: para saber cuánto acierta la app con
+pacientes reales hacen falta grabaciones reales. Con `EVAL_RECORDING=1`, la página **/samples**
+(enlace en *Pacientes*) permite al terapeuta grabar al paciente diciendo una palabra y marcar si
+la pronunció bien (y, si no, qué dijo). Pide confirmar el consentimiento y **no guarda quién es el
+paciente**. Las muestras van a `eval_audio/clinica/` (fuera de git) y se evalúan con:
+
+```bash
+python tools/eval_speech.py eval_audio/clinica
+```
+
+Unas decenas de muestras por tipo de error ya dan una idea fiable de la sensibilidad y de los
+falsos aprobados.
+
+### Tests
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+Comprobación de tipos: `npx pyright` (Python) y `npm run check:js` (JavaScript:
+`nav.js`, `sw-register.js` y el service worker).
+
+No cargan Whisper ni generan audio, y usan una base de datos temporal.
+
+### Variables de entorno
+
+| Variable | Por defecto | Uso |
+|---|---|---|
+| `DATABASE_URL` | SQLite en `data/` | Base de datos (SQLite o PostgreSQL) |
+| `STT_ENGINE` | `faster_whisper` | Motor de voz: `faster_whisper`, `whisper`, `vosk` o `none` (sin modelo, para desarrollo y tests) |
+| `WHISPER_MODEL` | `base` | Modelo de faster-whisper. `small` aprueba menos errores de pronunciación pero es ~3 veces más lento (ver `tools/eval_speech.py`) |
+| `SPEECH_CONCURRENCY` | `1` | Transcripciones simultáneas (Whisper usa la CPU) |
+| `HOST` / `PORT` | `127.0.0.1` / `8000` | Dirección de escucha de `python app.py`. En la clínica se queda en `127.0.0.1` y Caddy publica la app |
+| `COOKIE_SECURE` | `0` | `1` cuando se sirve con HTTPS: la cookie de sesión solo viaja cifrada (lo pone `deploy/start_clinic.bat`) |
+| `RELOAD` | `0` | `1` para recargar al guardar cambios (desarrollo) |
+| `ALLOWED_ORIGINS` | vacío | Orígenes CORS permitidos, separados por comas (solo si otra web llama a la API) |
+| `TTS_ONLINE` | `0` | `1` permite las voces **en línea** (Edge de Microsoft, gTTS de Google) si Piper falla. Desactivadas porque enviarían fuera las frases del paciente; sin voz del servidor, las páginas usan la del dispositivo |
+| `EVAL_RECORDING` | `0` | `1` activa la página /samples para grabar muestras de voz etiquetadas |
+| `EVAL_AUDIO_DIR` | `eval_audio/clinica` | Dónde se guardan esas muestras |
 
 ---
 
@@ -220,7 +375,9 @@ db.add_word({
 
 ### Configurar Voces TTS
 
-En `voice_processor.py`, las voces disponibles son:
+La voz principal es **Piper** (local, sin conexión). Si no está disponible, las páginas usan la
+voz del propio dispositivo. Las voces de Edge TTS solo se usan con `TTS_ONLINE=1`
+(ver *Variables de entorno*); en ese caso, las disponibles son:
 
 ```python
 # Español España
@@ -276,8 +433,8 @@ pip install openai-whisper
 ```
 
 ### "Error al reproducir audio"
-- Verifica que `edge-tts` esté instalado
-- Comprueba conexión a internet (TTS usa servicios online)
+- Verifica que Piper esté instalado (carpetas `piper/` y `voices/`): es la voz del servidor
+- Sin voz del servidor, la app usa la del dispositivo: comprueba que el sistema tenga una voz en español
 
 ### La base de datos no se crea
 ```bash
@@ -294,7 +451,7 @@ python -c "from database import Database; Database().initialize()"
 |------------|-----|
 | **FastAPI** | Backend web moderno y rápido |
 | **Whisper** | Reconocimiento de voz de OpenAI |
-| **Edge TTS** | Text-to-Speech de Microsoft |
+| **Piper** | Voz local (Text-to-Speech sin conexión) |
 | **SQLite** | Base de datos ligera |
 | **Tailwind CSS** | Estilos modernos |
 | **Chart.js** | Gráficos de progreso |
@@ -317,10 +474,22 @@ Proyecto de rehabilitación vocal con IA - 2025
 ## 🙏 Agradecimientos
 
 - OpenAI por Whisper
-- Microsoft por Edge TTS
+- Piper (Rhasspy) por la voz local sin conexión
 - La comunidad de FastAPI
 - Todos los profesionales de fonoaudiología que inspiraron este proyecto
 
 ---
 
 *¡Que cada palabra sea un paso hacia la recuperación! 🎤✨*
+
+---
+
+## Créditos y licencias
+
+- **Pictogramas del comunicador:** todas las ilustraciones son de **ARASAAC** (estilo uniforme). Autor: Sergio Palao.
+  Origen: [ARASAAC](https://arasaac.org). Licencia:
+  [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.es).
+  Propiedad: Gobierno de Aragón (España). **Solo uso no comercial**; la atribución aparece
+  al pie del comunicador. Detalles en `static/pictograms/arasaac/LICENSE.txt`.
+- **Iconos:** Font Awesome Free 6.5 (iconos CC BY 4.0, fuente SIL OFL 1.1, código MIT).
+- **Fuente:** Poppins (SIL Open Font License 1.1).

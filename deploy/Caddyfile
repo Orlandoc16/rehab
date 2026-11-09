@@ -1,0 +1,21 @@
+# Rehab Voice con HTTPS en la red local de la clínica (Caddy delante de la app).
+#
+# 1. Cambia 192.168.1.50 por la IP fija del PC de la clínica (ver "ipconfig").
+# 2. Arranca la app con deploy\start_clinic.bat y, en otra ventana:
+#        caddy run --config deploy\Caddyfile
+# 3. Instala el certificado raíz de Caddy en cada tablet (ver README, "Despliegue en la clínica").
+{
+	# Red local: sin certificados públicos (Let's Encrypt). Caddy firma los suyos con
+	# una autoridad local que hay que instalar una vez en cada tablet.
+	local_certs
+}
+
+https://192.168.1.50 {
+	tls internal
+	reverse_proxy 127.0.0.1:8000
+}
+
+# Redirige http:// a https:// (las tablets que entren por http acaban en la versión segura)
+http://192.168.1.50 {
+	redir https://{host}{uri} permanent
+}

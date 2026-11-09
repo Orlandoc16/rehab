@@ -12,18 +12,23 @@ Características:
 import os
 import asyncio
 import tempfile
+import hashlib
+import importlib.util
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 import json
 import wave
 from datetime import datetime
 
+# Caché persistente de audios TTS de los motores de respaldo (Edge/gTTS)
+TTS_CACHE_DIR = Path(__file__).resolve().parent / "cache" / "tts"
+TTS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
 # Procesamiento de audio
-try:
-    import whisper
-    WHISPER_AVAILABLE = True
-except ImportError:
-    WHISPER_AVAILABLE = False
+# openai-whisper arrastra PyTorch (~15 s de arranque y cientos de MB de memoria).
+# Solo se importa si se elige ese motor; faster-whisper (el motor por defecto) no lo necesita.
+WHISPER_AVAILABLE = importlib.util.find_spec("whisper") is not None
+if not WHISPER_AVAILABLE:
     print("⚠️ Whisper no disponible. Instalar con: pip install openai-whisper")
 
 try:
@@ -60,6 +65,15 @@ try:
     EDGE_TTS_AVAILABLE = True
 except ImportError:
     EDGE_TTS_AVAILABLE = False
+
+# Voces EN LÍNEA (Edge TTS de Microsoft, gTTS de Google) como respaldo de Piper. Desactivadas por
+# defecto: enviarían a servicios externos las frases del paciente («Tengo dolor de pecho»).
+# Actívalas con TTS_ONLINE=1 solo si el centro lo acepta.
+TTS_ONLINE = os.getenv("TTS_ONLINE", "0") == "1"
+
+
+class NoVoiceAvailableError(RuntimeError):
+    """Ningún motor de voz pudo generar el audio."""
 
 # Conversión de audio
 try:
@@ -127,14 +141,19 @@ class VoiceProcessor:
     def _initialize_engine(self):
         """Inicializa el motor de reconocimiento de voz"""
         if self.engine == "faster_whisper" and FASTER_WHISPER_AVAILABLE:
-            print("⚡ Cargando Faster Whisper (small)...")
+            # WHISPER_MODEL: "base" (por defecto, ~2-3 s por intento en un portátil) o "small"
+            # (menos falsos aprobados, ~3 veces más lento: recomendable con CPU de escritorio o GPU).
+            # Comparativa: python tools/eval_speech.py eval_audio/sintetico --model small
+            model_size = os.getenv("WHISPER_MODEL", "base")
+            print(f"⚡ Cargando Faster Whisper ({model_size})...")
             # Run on CPU with INT8 by default to be safe on all machines
-            self.model = WhisperModel("base", device="cpu", compute_type="int8")  # pyright: ignore[reportPossiblyUnboundVariable]
+            self.model = WhisperModel(model_size, device="cpu", compute_type="int8")  # pyright: ignore[reportPossiblyUnboundVariable]
             print("✅ Faster Whisper cargado")
             
         elif self.engine == "whisper" and WHISPER_AVAILABLE:
             print("🔄 Cargando modelo Whisper (small)...")
-            self.model = whisper.load_model("base")  # pyright: ignore[reportPossiblyUnboundVariable]
+            import whisper
+            self.model = whisper.load_model("base")
             print("✅ Whisper cargado")
             
         elif self.engine == "vosk" and VOSK_AVAILABLE:
@@ -161,49 +180,51 @@ class VoiceProcessor:
         """
         # Convertir audio si es necesario
         wav_path = self._convert_to_wav(audio_path)
+        try:
         
-        print(f"🎤 Transcribiendo: {wav_path} (engine={self.engine}, prompt='{initial_prompt}')")
+            print(f"🎤 Transcribiendo: {wav_path} (engine={self.engine}, prompt='{initial_prompt}')")
         
-        if self.engine == "faster_whisper" and self.model:
-            # Faster Whisper uses 'initial_prompt'
-            segments, _ = self.model.transcribe(
-                wav_path,
-                language=language,
-                initial_prompt=initial_prompt,
-                vad_filter=True,
-                condition_on_previous_text=False,
-                beam_size=5,
-                best_of=5,
-                word_timestamps=False,
-                patience=1.0
-            )
-            # Combine segments
-            transcription = " ".join([segment.text for segment in segments]).strip()
-            print(f"✅ Faster Whisper result: '{transcription}'")
+            if self.engine == "faster_whisper" and self.model:
+                # Faster Whisper uses 'initial_prompt'
+                segments, _ = self.model.transcribe(
+                    wav_path,
+                    language=language,
+                    initial_prompt=initial_prompt,
+                    vad_filter=True,
+                    condition_on_previous_text=False,
+                    beam_size=5,
+                    best_of=5,
+                    word_timestamps=False,
+                    patience=1.0
+                )
+                # Combine segments
+                transcription = " ".join([segment.text for segment in segments]).strip()
+                print(f"✅ Faster Whisper result: '{transcription}'")
             
-        elif self.engine == "whisper" and self.model:
-            # OpenAI Whisper uses 'initial_prompt'
-            result = self.model.transcribe(
-                wav_path,
-                language=language,
-                fp16=False,  # Usar fp32 para compatibilidad
-                initial_prompt=initial_prompt
-            )
-            transcription = result["text"].strip()
-            print(f"✅ Whisper result: '{transcription}'")
+            elif self.engine == "whisper" and self.model:
+                # OpenAI Whisper uses 'initial_prompt'
+                result = self.model.transcribe(
+                    wav_path,
+                    language=language,
+                    fp16=False,  # Usar fp32 para compatibilidad
+                    initial_prompt=initial_prompt
+                )
+                transcription = result["text"].strip()
+                print(f"✅ Whisper result: '{transcription}'")
             
-        elif self.engine == "vosk" and self.model:
-            transcription = self._transcribe_vosk(wav_path)
-            print(f"✅ Vosk result: '{transcription}'")
+            elif self.engine == "vosk" and self.model:
+                transcription = self._transcribe_vosk(wav_path)
+                print(f"✅ Vosk result: '{transcription}'")
             
-        else:
-            # Fallback
-            print("⚠️ No hay motor de transcripción disponible")
-            transcription = self._mock_transcription(audio_path)
+            else:
+                # Fallback
+                print("⚠️ No hay motor de transcripción disponible")
+                transcription = self._mock_transcription(audio_path)
         
-        # Limpiar archivo temporal
-        if wav_path != audio_path and os.path.exists(wav_path):
-            os.remove(wav_path)
+        finally:
+            # Limpiar archivo temporal (también si la transcripción falla)
+            if wav_path != audio_path and os.path.exists(wav_path):
+                os.remove(wav_path)
         
         return transcription
     
@@ -1133,28 +1154,39 @@ class VoiceProcessor:
         
         return tips
     
+    def _tts_cache_path(self, engine: str, text: str, voice: str, speed: str, ext: str) -> Path:
+        """Ruta estable en caché para un audio TTS (misma entrada -> mismo archivo)."""
+        key = hashlib.sha256(f"{engine}|{voice}|{speed}|{text}".encode("utf-8")).hexdigest()[:32]
+        return TTS_CACHE_DIR / f"{engine}_{key}{ext}"
+
     async def text_to_speech(self, text: str, voice: str = "es-ES-ElviraNeural", speed: str = "normal") -> str:
-        """Genera audio TTS usando Piper (preferido) o fallbacks."""
+        """Genera audio TTS: Piper (local, preferido); después las voces en línea si TTS_ONLINE=1;
+        por último pyttsx3 (local). Si ninguno funciona lanza NoVoiceAvailableError: la página
+        usará la voz del dispositivo."""
         output_path = os.path.join(self.temp_dir, f"tts_{datetime.now().timestamp()}.wav")
-        
-        # PIPER TTS (Offline, ~50ms) ⭐
+
+        # PIPER TTS (Offline, con caché propia). Es síncrono: se ejecuta en un hilo.
         if PIPER_INTEGRATION and PIPER_TTS:
             try:
-                result = PIPER_TTS.synthesize(text=text, slow_mode=(speed == "lenta"))
+                result = await asyncio.to_thread(PIPER_TTS.synthesize, text=text, slow_mode=(speed == "lenta"))
                 if os.path.exists(result):
                     return result
             except Exception as e:
                 print(f"⚠️ Piper: {e}")
-        
-        # Edge TTS (Online) - Prefer over pyttsx3 for quality
-        if EDGE_TTS_AVAILABLE:
+
+        # Edge TTS (en línea, solo con TTS_ONLINE=1). Se guarda en caché persistente.
+        if TTS_ONLINE and EDGE_TTS_AVAILABLE:
+            cached_mp3 = self._tts_cache_path("edge", text, voice, speed, ".mp3")
+            if cached_mp3.exists() and cached_mp3.stat().st_size > 0:
+                return str(cached_mp3)
             try:
-                output_mp3 = output_path.replace('.wav', '.mp3')
+                tmp_mp3 = cached_mp3.with_suffix(f".{os.getpid()}.tmp")
                 # Slight slowdown for better clarity in rehab context
                 rate_map = {"lenta": "-30%", "normal": "-10%", "rapida": "+0%"}
                 communicate = edge_tts.Communicate(text, voice, rate=rate_map.get(speed, "-10%"))  # pyright: ignore[reportPossiblyUnboundVariable]
-                await communicate.save(output_mp3)
-                return output_mp3
+                await communicate.save(str(tmp_mp3))
+                os.replace(tmp_mp3, cached_mp3)
+                return str(cached_mp3)
             except Exception as e:
                 print(f"⚠️ EdgeTTS: {e}")
 
@@ -1168,20 +1200,24 @@ class VoiceProcessor:
         except Exception as e:
             print(f"⚠️ pyttsx3: {e}")
             
-        # gTTS (Online fallback)
+        # gTTS (en línea, solo con TTS_ONLINE=1)
+        if not TTS_ONLINE:
+            raise NoVoiceAvailableError("No hay motor de voz local disponible (¿Piper instalado?)")
         try:
             from gtts import gTTS  # pyright: ignore[reportMissingImports]
-            output_mp3 = output_path.replace('.wav', '.mp3')
+            cached_mp3 = self._tts_cache_path("gtts", text, "es", speed, ".mp3")
+            if cached_mp3.exists() and cached_mp3.stat().st_size > 0:
+                return str(cached_mp3)
+            tmp_mp3 = str(cached_mp3.with_suffix(f".{os.getpid()}.tmp"))
             # Run gTTS in executor as it might block network
             loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, lambda: gTTS(text=text, lang='es', slow=True).save(output_mp3))
-            return output_mp3
+            await loop.run_in_executor(None, lambda: gTTS(text=text, lang='es', slow=True).save(tmp_mp3))
+            os.replace(tmp_mp3, cached_mp3)
+            return str(cached_mp3)
         except Exception as e:
             print(f"⚠️ gTTS: {e}")
-            
-        with open(output_path, 'wb') as f:
-            f.write(b'')
-        return output_path
+
+        raise NoVoiceAvailableError("Ningún motor de voz pudo generar el audio")
 
     def _generate_pyttsx3_audio(self, text: str, output_path: str):
         """Helper for pyttsx3 to run in thread pool"""

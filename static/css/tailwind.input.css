@@ -1,0 +1,27 @@
+/* Entrada de Tailwind. No edites static/css/app.css: se genera con `npm run build:css`. */
+@tailwind base;
+@tailwind components;
+/* Cabecera compartida. Antes de las utilidades para que estas tengan prioridad, como antes. */
+/* Mobile Menu */
+.mobile-menu {
+    transform: translateY(-100%);
+    transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.mobile-menu.active {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Glassmorphism utility */
+.glass-effect {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+@tailwind utilities;

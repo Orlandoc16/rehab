@@ -5,13 +5,17 @@ SQLAlchemy ORM for improved database management (SQLite + PostgreSQL)
 
 import os
 import json
+import re
+import unicodedata
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from pathlib import Path
 
-from sqlalchemy import create_engine, String, Integer, Float, Text, ForeignKey, DateTime, func
+from sqlalchemy import create_engine, String, Integer, Float, Text, ForeignKey, DateTime, Index, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker, relationship
+
+from word_images import WORD_IMAGES
 
 # Base configuration
 class Base(DeclarativeBase):
@@ -56,6 +60,7 @@ class Category(Base):
 
 class Word(Base):
     __tablename__ = 'words'
+    __table_args__ = (Index('ix_words_category_level', 'category_id', 'level'),)
     
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_short_uuid)
     word: Mapped[str] = mapped_column(String, nullable=False)
@@ -72,6 +77,11 @@ class Word(Base):
 
 class Progress(Base):
     __tablename__ = 'progress'
+    # Todas las consultas de progreso filtran por paciente (y por palabra o por fecha)
+    __table_args__ = (
+        Index('ix_progress_patient_word', 'patient_id', 'word_id'),
+        Index('ix_progress_patient_created', 'patient_id', 'created_at'),
+    )
     
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_short_uuid)
     patient_id: Mapped[str] = mapped_column(String, ForeignKey('patients.id'), nullable=False)
@@ -88,6 +98,7 @@ class Progress(Base):
 
 class Achievement(Base):
     __tablename__ = 'achievements'
+    __table_args__ = (Index('ix_achievements_patient', 'patient_id'),)
     
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_short_uuid)
     patient_id: Mapped[str] = mapped_column(String, ForeignKey('patients.id'), nullable=False)
@@ -99,6 +110,7 @@ class Achievement(Base):
 
 class Points(Base):
     __tablename__ = 'points'
+    __table_args__ = (Index('ix_points_patient', 'patient_id'),)
     
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_short_uuid)
     patient_id: Mapped[str] = mapped_column(String, ForeignKey('patients.id'), nullable=False)
@@ -130,6 +142,168 @@ class AACPictogram(Base):
     default_phrase: Mapped[Optional[str]] = mapped_column(String)
     
     category: Mapped[Optional["AACCategory"]] = relationship("AACCategory", back_populates="pictograms")
+
+class Therapist(Base):
+    """Terapeuta con acceso a la app. Contraseña con scrypt (ver auth.py)."""
+    __tablename__ = 'therapists'
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_short_uuid)
+    username: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=_utcnow)
+
+
+class AuthSession(Base):
+    """Sesión iniciada. Se guarda el hash del token (la cookie lleva el token)."""
+    __tablename__ = 'auth_sessions'
+
+    token_hash: Mapped[str] = mapped_column(String, primary_key=True)
+    therapist_id: Mapped[str] = mapped_column(String, ForeignKey('therapists.id'), nullable=False)
+    patient_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey('patients.id'))
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=_utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+def word_image_key(category_id: Optional[str], word: str) -> str:
+    """Clave de WORD_IMAGES: «categoría/palabra» en minúsculas, sin tildes ni signos (la ñ se mantiene)."""
+    text = unicodedata.normalize("NFD", word.lower().strip())
+    text = "".join(c for c in text if unicodedata.category(c) != "Mn" or c == "̃")  # ̃: la virgulilla de la ñ
+    text = re.sub(r"[¿?¡!.,]", "", unicodedata.normalize("NFC", text)).strip()
+    return f"{category_id}/{text}"
+
+
+# Ilustraciones de pictogramas: TODAS de ARASAAC, para que el tablero tenga un estilo uniforme.
+# Autor: Sergio Palao. Origen: ARASAAC (https://arasaac.org). Licencia: CC BY-NC-SA 4.0
+# (uso no comercial, con atribución). Elegidos a mano entre varios candidatos; cada archivo
+# se llama como su identificador en ARASAAC. Ver static/pictograms/arasaac/LICENSE.txt
+# Los c_*.webp son composiciones A COLOR de piezas de ARASAAC (tools/compose_pictograms.py)
+# para conceptos que ARASAAC solo tiene en blanco y negro (parentescos, vecino, acomodarme).
+# Los pictogramas aac_* vienen del antiguo script de vocabulario: solo se aplican si existen.
+PICTOGRAM_IMAGES = {
+    # Acciones
+    "walk": "/static/pictograms/arasaac/32214.webp",  # Caminar
+    "rest": "/static/pictograms/arasaac/31937.webp",  # Descansar
+    "write": "/static/pictograms/arasaac/2380.webp",  # Escribir
+    "read": "/static/pictograms/arasaac/31680.webp",  # Leer
+    "call": "/static/pictograms/arasaac/34405.webp",  # Llamar
+    "listen": "/static/pictograms/arasaac/29718.webp",  # Música
+    "paint": "/static/pictograms/arasaac/5574.webp",  # Pintar
+    "pray": "/static/pictograms/arasaac/24368.webp",  # Rezar
+    "go_out": "/static/pictograms/arasaac/28689.webp",  # Salir
+    "watch_tv": "/static/pictograms/arasaac/2782.webp",  # Ver TV
+    # Animales
+    "aac_horse": "/static/pictograms/arasaac/2294.webp",  # Caballo
+    "aac_cat": "/static/pictograms/arasaac/7114.webp",  # Gato
+    "aac_dog": "/static/pictograms/arasaac/7202.webp",  # Perro
+    "aac_fish": "/static/pictograms/arasaac/2520.webp",  # Pez
+    "aac_bird": "/static/pictograms/arasaac/2490.webp",  # Pájaro
+    # Aseo
+    "groom": "/static/pictograms/arasaac/5361.webp",  # Afeitarme
+    "shower": "/static/pictograms/arasaac/2371.webp",  # Bañarme
+    "nails": "/static/pictograms/arasaac/10153.webp",  # Cortar Uñas
+    "brush_teeth": "/static/pictograms/arasaac/31880.webp",  # Dientes
+    "wash_hands": "/static/pictograms/arasaac/8975.webp",  # Lavar Manos
+    "comb": "/static/pictograms/arasaac/2512.webp",  # Peinarme
+    "change_clothes": "/static/pictograms/arasaac/2781.webp",  # Ropa
+    # Asistencia
+    "position": "/static/pictograms/arasaac/c_acomodarme.webp",  # Acomodarme (compuesto)
+    "tv_remote": "/static/pictograms/arasaac/26182.webp",  # Control TV
+    "glasses": "/static/pictograms/arasaac/3329.webp",  # Lentes
+    "help_up": "/static/pictograms/arasaac/6548.webp",  # Levantarme
+    "light_on": "/static/pictograms/arasaac/8103.webp",  # Luz
+    "sit_down": "/static/pictograms/arasaac/25082.webp",  # Sentarme
+    "quiet": "/static/pictograms/arasaac/5936.webp",  # Silencio
+    "wheelchair": "/static/pictograms/arasaac/6212.webp",  # Silla Ruedas
+    "phone": "/static/pictograms/arasaac/26479.webp",  # Teléfono
+    # Bebida
+    "water": "/static/pictograms/arasaac/2248.webp",  # Agua
+    "coffee": "/static/pictograms/arasaac/2296.webp",  # Café
+    "juice": "/static/pictograms/arasaac/2624.webp",  # Jugo
+    "milk": "/static/pictograms/arasaac/2445.webp",  # Leche
+    "tea": "/static/pictograms/arasaac/2429.webp",  # Té
+    # Casa
+    "aac_bed": "/static/pictograms/arasaac/2304.webp",  # Cama
+    "aac_door": "/static/pictograms/arasaac/3244.webp",  # Puerta
+    "aac_chair": "/static/pictograms/arasaac/3155.webp",  # Silla
+    "aac_tv": "/static/pictograms/arasaac/25498.webp",  # TV
+    # Comida
+    "rice": "/static/pictograms/arasaac/39387.webp",  # Arroz
+    "meat": "/static/pictograms/arasaac/2316.webp",  # Carne
+    "salad": "/static/pictograms/arasaac/2377.webp",  # Ensalada
+    "fruit": "/static/pictograms/arasaac/4653.webp",  # Fruta
+    "hamb": "/static/pictograms/arasaac/2419.webp",  # Hamburguesa
+    "bread": "/static/pictograms/arasaac/2494.webp",  # Pan
+    "fish": "/static/pictograms/arasaac/2519.webp",  # Pescado
+    "chicken": "/static/pictograms/arasaac/24815.webp",  # Pollo
+    "dessert": "/static/pictograms/arasaac/7216.webp",  # Postre
+    "soup": "/static/pictograms/arasaac/2573.webp",  # Sopa
+    # Gente
+    "friend": "/static/pictograms/arasaac/8487.webp",  # Amigo
+    "caregiver": "/static/pictograms/arasaac/14662.webp",  # Cuidador
+    "doctor": "/static/pictograms/arasaac/2467.webp",  # Doctor
+    "nurse": "/static/pictograms/arasaac/2375.webp",  # Enfermera
+    "wife": "/static/pictograms/arasaac/c_esposa.webp",  # Esposa (compuesto)
+    "husband": "/static/pictograms/arasaac/c_esposo.webp",  # Esposo (compuesto)
+    "family": "/static/pictograms/arasaac/2392.webp",  # Familia
+    "daughter": "/static/pictograms/arasaac/c_hija.webp",  # Hija (compuesto)
+    "son": "/static/pictograms/arasaac/c_hijo.webp",  # Hijo (compuesto)
+    "granddaughter": "/static/pictograms/arasaac/c_nieta.webp",  # Nieta (compuesto)
+    "grandson": "/static/pictograms/arasaac/c_nieto.webp",  # Nieto (compuesto)
+    "priest": "/static/pictograms/arasaac/30822.webp",  # Sacerdote
+    "neighbor": "/static/pictograms/arasaac/c_vecino.webp",  # Vecino (compuesto)
+    # Lugares
+    "aac_home_place": "/static/pictograms/arasaac/2317.webp",  # Casa
+    "aac_hospital": "/static/pictograms/arasaac/29859.webp",  # Doctor
+    "aac_park": "/static/pictograms/arasaac/2859.webp",  # Parque
+    "aac_store": "/static/pictograms/arasaac/35695.webp",  # Tienda
+    # Necesidad
+    "hearing_aid": "/static/pictograms/arasaac/34278.webp",  # Audífono
+    "help_gen": "/static/pictograms/arasaac/12252.webp",  # Ayuda
+    "toilet": "/static/pictograms/arasaac/2430.webp",  # Baño
+    "heat": "/static/pictograms/arasaac/35561.webp",  # Calor
+    "charge_phone": "/static/pictograms/arasaac/34939.webp",  # Cargar Celular
+    "company": "/static/pictograms/arasaac/28187.webp",  # Compañía
+    "dentures": "/static/pictograms/arasaac/37170.webp",  # Dentadura
+    "sleep": "/static/pictograms/arasaac/2369.webp",  # Dormir
+    "cold": "/static/pictograms/arasaac/35557.webp",  # Frío
+    "medicine": "/static/pictograms/arasaac/8163.webp",  # Medicina
+    "pillbox": "/static/pictograms/arasaac/39869.webp",  # Pastillero
+    # Respuestas
+    "bye": "/static/pictograms/arasaac/5896.webp",  # Adiós
+    "good": "/static/pictograms/arasaac/5397.webp",  # Bien
+    "wait": "/static/pictograms/arasaac/8109.webp",  # Espera
+    "thanks": "/static/pictograms/arasaac/8128.webp",  # Gracias
+    "hello": "/static/pictograms/arasaac/6009.webp",  # Hola
+    "bad": "/static/pictograms/arasaac/5504.webp",  # Mal
+    "more": "/static/pictograms/arasaac/3220.webp",  # Más
+    "no": "/static/pictograms/arasaac/5526.webp",  # No
+    "dont_know": "/static/pictograms/arasaac/7180.webp",  # No sé
+    "please": "/static/pictograms/arasaac/38907.webp",  # Por favor
+    "yes": "/static/pictograms/arasaac/5584.webp",  # Sí
+    "maybe": "/static/pictograms/arasaac/11696.webp",  # Tal vez
+    "finished": "/static/pictograms/arasaac/28429.webp",  # Terminé
+    # Ropa
+    "aac_shirt": "/static/pictograms/arasaac/13640.webp",  # Camisa
+    "aac_glasses": "/static/pictograms/arasaac/3329.webp",  # Lentes
+    "aac_shoes": "/static/pictograms/arasaac/2622.webp",  # Zapatos
+    # Sentir
+    "bored": "/static/pictograms/arasaac/31744.webp",  # Aburrido
+    "tired": "/static/pictograms/arasaac/31925.webp",  # Cansado
+    "pain": "/static/pictograms/arasaac/2367.webp",  # Dolor
+    "pain_arm": "/static/pictograms/arasaac/28773.webp",  # Dolor Brazo
+    "pain_head": "/static/pictograms/arasaac/28753.webp",  # Dolor Cabeza
+    "pain_back": "/static/pictograms/arasaac/28785.webp",  # Dolor Espalda
+    "pain_stomach": "/static/pictograms/arasaac/28765.webp",  # Dolor Panza
+    "pain_chest": "/static/pictograms/arasaac/28781.webp",  # Dolor Pecho
+    "pain_leg": "/static/pictograms/arasaac/28769.webp",  # Dolor Pierna
+    "angry": "/static/pictograms/arasaac/31884.webp",  # Enojado
+    "happy": "/static/pictograms/arasaac/32123.webp",  # Feliz
+    "pain_throat": "/static/pictograms/arasaac/28761.webp",  # Garganta
+    "dizzy": "/static/pictograms/arasaac/31795.webp",  # Mareado
+    "scared": "/static/pictograms/arasaac/31896.webp",  # Miedo
+    "sad": "/static/pictograms/arasaac/31939.webp",  # Triste
+}
 
 # ==================== DATABASE MANAGER ====================
 
@@ -176,8 +350,30 @@ class Database:
     def initialize(self):
         """Initialize database tables and default data"""
         Base.metadata.create_all(bind=self.engine)
+        # create_all solo crea índices en tablas nuevas: crearlos también en bases ya existentes
+        for table in Base.metadata.sorted_tables:
+            for index in table.indexes:
+                index.create(bind=self.engine, checkfirst=True)
         self._insert_initial_data()
         self._seed_aac_data()
+        self._apply_word_images()
+
+    def _apply_word_images(self):
+        """Imagen de ARASAAC de cada palabra de práctica (WORD_IMAGES). También actualiza
+        bases de datos existentes; las palabras sin imagen conocida no se tocan."""
+        session = self.SessionLocal()
+        try:
+            changed = 0
+            for word in session.query(Word).all():
+                image = WORD_IMAGES.get(word_image_key(word.category_id, word.word))
+                if image and word.image_url != image:
+                    word.image_url = image
+                    changed += 1
+            session.commit()
+            if changed:
+                print(f"🖼️ Imágenes de {changed} palabras de práctica actualizadas")
+        finally:
+            session.close()
         
     def _seed_aac_data(self):
         """Populate initial AAC data"""
@@ -223,6 +419,7 @@ class Database:
                 ("coffee", "drink", "Café", "fa-mug-hot", {"noun": "café", "gender": "m"}, "Quiero café"),
                 ("tea", "drink", "Té", "fa-mug-saucer", {"noun": "té", "gender": "m"}, "Quiero té"),
                 ("juice", "drink", "Jugo", "fa-whiskey-glass", {"noun": "jugo", "gender": "m"}, "Quiero jugo"),
+                ("milk", "drink", "Leche", "fa-glass-water", {"noun": "leche", "gender": "f"}, "Quiero leche"),
                 
                 # SENTIMIENTOS (Icons)
                 ("happy", "feelings", "Feliz", "fa-face-laugh", {"adj": "feliz"}, "Estoy feliz"),
@@ -333,6 +530,15 @@ class Database:
                         default_phrase=phrase
                     ))
             
+            session.flush()
+
+            # Pictogramas con ilustración: la imagen sustituye al icono genérico.
+            # (También actualiza bases de datos antiguas que apuntaban a los .png.)
+            for pid, image in PICTOGRAM_IMAGES.items():
+                picto = session.get(AACPictogram, pid)
+                if picto is not None and picto.icon_src != image:
+                    picto.icon_src = image
+
             session.commit()
             print("✅ AAC data seeded (Updated)")
             
@@ -475,8 +681,9 @@ class Database:
                 category_id=word_data.get("category_id", "custom"),
                 level=word_data.get("level", 1),
                 phonetic_hint=word_data.get("phonetic_hint", ""),
-                tips=word_data.get("tips", "")
+                tips=word_data.get("tips", ""),
             )
+            new_word.image_url = WORD_IMAGES.get(word_image_key(new_word.category_id, new_word.word or ""))
             session.add(new_word)
             session.commit()
             return new_word.id
@@ -507,61 +714,59 @@ class Database:
             session.close()
 
     def get_progress(self, patient_id: str) -> Dict:
+        """Resumen de progreso del paciente: totales, por categoría y últimos intentos.
+
+        Tres consultas agrupadas (antes eran ~52: varias por categoría y una por intento reciente).
+        """
         session = self.SessionLocal()
         try:
-            # Stats
-            total_attempts = session.query(Progress).filter(Progress.patient_id == patient_id).count()
-            unique_words = session.query(Progress.word_id).filter(Progress.patient_id == patient_id).distinct().count()
-            avg_score = session.query(func.avg(Progress.score)).filter(Progress.patient_id == patient_id).scalar() or 0
-            best_score = session.query(func.max(Progress.score)).filter(Progress.patient_id == patient_id).scalar() or 0
-            
-            # By Category
-            # This is complex in ORM, simplification: Fetch all categories and counting in python for readability or using raw sql for complex aggregate
-            # Using simple query logic for now
-            categories = session.query(Category).order_by(Category.order_num).all()
+            # Totales
+            total_attempts, unique_words, avg_score, best_score = session.query(
+                func.count(Progress.id),
+                func.count(func.distinct(Progress.word_id)),
+                func.avg(Progress.score),
+                func.max(Progress.score),
+            ).filter(Progress.patient_id == patient_id).one()
+
+            # Por categoría (solo intentos sobre palabras existentes, como antes)
+            practiced = {
+                category_id: (words_practiced, cat_avg)
+                for category_id, words_practiced, cat_avg in session.query(
+                    Word.category_id,
+                    func.count(func.distinct(Progress.word_id)),
+                    func.avg(Progress.score),
+                ).join(Word, Progress.word_id == Word.id)
+                .filter(Progress.patient_id == patient_id)
+                .group_by(Word.category_id)
+            }
+            totals = dict(session.query(Word.category_id, func.count(Word.id)).group_by(Word.category_id).all())
+
             by_category = []
-            
-            for cat in categories:
-                # Count practiced words in this category
-                practiced_count = session.query(Progress.word_id)\
-                    .join(Word, Progress.word_id == Word.id)\
-                    .filter(Progress.patient_id == patient_id, Word.category_id == cat.id)\
-                    .distinct().count()
-                
-                cat_avg = session.query(func.avg(Progress.score))\
-                    .join(Word, Progress.word_id == Word.id)\
-                    .filter(Progress.patient_id == patient_id, Word.category_id == cat.id)\
-                    .scalar() or 0
-                
-                total_cat_words = session.query(Word).filter(Word.category_id == cat.id).count()
-                
+            for cat in session.query(Category).order_by(Category.order_num).all():
+                words_practiced, cat_avg = practiced.get(cat.id, (0, None))
                 by_category.append({
                     "id": cat.id,
                     "name": cat.name,
                     "icon": cat.icon,
-                    "words_practiced": practiced_count,
-                    "avg_score": round(cat_avg, 1),
-                    "total_words": total_cat_words
+                    "words_practiced": words_practiced,
+                    "avg_score": round(cat_avg or 0, 1),
+                    "total_words": totals.get(cat.id, 0)
                 })
-            
-            # Recent Attempts
-            recents = session.query(Progress).filter(Progress.patient_id == patient_id)\
-                .order_by(Progress.created_at.desc()).limit(20).all()
-            
+
+            # Últimos intentos, con la palabra (una sola consulta)
             recent_list = []
-            for r in recents:
+            for r, word_text in session.query(Progress, Word.word)                    .outerjoin(Word, Progress.word_id == Word.id)                    .filter(Progress.patient_id == patient_id)                    .order_by(Progress.created_at.desc()).limit(20).all():
                 r_dict = self._to_dict(r)
-                word_obj = session.get(Word, r.word_id)
-                r_dict['word'] = word_obj.word if word_obj else "Unknown"
+                r_dict['word'] = word_text if word_text is not None else "Unknown"
                 recent_list.append(r_dict)
 
             return {
                 "patient_id": patient_id,
                 "stats": {
-                    "total_attempts": total_attempts,
-                    "unique_words": unique_words,
-                    "average_score": round(avg_score, 1),
-                    "best_score": best_score
+                    "total_attempts": total_attempts or 0,
+                    "unique_words": unique_words or 0,
+                    "average_score": round(avg_score or 0, 1),
+                    "best_score": best_score or 0
                 },
                 "by_category": by_category,
                 "recent_attempts": recent_list
@@ -657,6 +862,123 @@ class Database:
         try:
             p = session.get(Patient, patient_id)
             return self._to_dict(p) if p else None
+        finally:
+            session.close()
+
+    def list_patients(self) -> List[Dict]:
+        """Pacientes de la clínica (todos los terapeutas comparten la lista), con su actividad."""
+        session = self.SessionLocal()
+        try:
+            rows = session.query(
+                Patient,
+                func.count(Progress.id),
+                func.max(Progress.created_at),
+            ).outerjoin(Progress, Progress.patient_id == Patient.id).group_by(Patient.id).order_by(Patient.name).all()
+            out = []
+            for patient, attempts, last in rows:
+                d = self._to_dict(patient)
+                d["attempts"] = attempts or 0
+                d["last_practiced"] = last.isoformat() if last else None
+                out.append(d)
+            return out
+        finally:
+            session.close()
+
+    # ==================== THERAPISTS & SESSIONS ====================
+
+    def count_therapists(self) -> int:
+        session = self.SessionLocal()
+        try:
+            return session.query(func.count(Therapist.id)).scalar() or 0
+        finally:
+            session.close()
+
+    def create_therapist(self, username: str, name: str, password_hash: str) -> str:
+        session = self.SessionLocal()
+        try:
+            therapist = Therapist(username=username.strip().lower(), name=name.strip(), password_hash=password_hash)
+            session.add(therapist)
+            session.commit()
+            return therapist.id
+        finally:
+            session.close()
+
+    def get_therapist_by_username(self, username: str) -> Optional[Dict]:
+        session = self.SessionLocal()
+        try:
+            t = session.query(Therapist).filter(Therapist.username == username.strip().lower()).first()
+            return self._to_dict(t) if t else None
+        finally:
+            session.close()
+
+    def set_therapist_password(self, username: str, password_hash: str) -> bool:
+        session = self.SessionLocal()
+        try:
+            t = session.query(Therapist).filter(Therapist.username == username.strip().lower()).first()
+            if not t:
+                return False
+            t.password_hash = password_hash
+            # Cambiar la contraseña cierra todas las sesiones abiertas de ese terapeuta
+            session.query(AuthSession).filter(AuthSession.therapist_id == t.id).delete()
+            session.commit()
+            return True
+        finally:
+            session.close()
+
+    def create_session(self, token_hash: str, therapist_id: str, expires_at: datetime) -> None:
+        session = self.SessionLocal()
+        try:
+            session.add(AuthSession(token_hash=token_hash, therapist_id=therapist_id, expires_at=expires_at))
+            session.commit()
+        finally:
+            session.close()
+
+    def get_session(self, token_hash: str, now: datetime, extend_to: Optional[datetime] = None) -> Optional[Dict]:
+        """Sesión válida con su terapeuta y paciente activo; renueva la caducidad si se indica."""
+        session = self.SessionLocal()
+        try:
+            s = session.get(AuthSession, token_hash)
+            if s is None:
+                return None
+            if s.expires_at <= now:
+                session.delete(s)
+                session.commit()
+                return None
+            therapist = session.get(Therapist, s.therapist_id)
+            if therapist is None:
+                return None
+            patient = session.get(Patient, s.patient_id) if s.patient_id else None
+            # Renovar solo si se gana más de 5 min (evita una escritura en cada petición)
+            if extend_to is not None and (extend_to - s.expires_at).total_seconds() > 300:
+                s.expires_at = extend_to
+                session.commit()
+            return {
+                "therapist_id": therapist.id,
+                "therapist_name": therapist.name,
+                "username": therapist.username,
+                "patient_id": patient.id if patient else None,
+                "patient_name": patient.name if patient else None,
+            }
+        finally:
+            session.close()
+
+    def set_session_patient(self, token_hash: str, patient_id: str) -> bool:
+        session = self.SessionLocal()
+        try:
+            s = session.get(AuthSession, token_hash)
+            if s is None or session.get(Patient, patient_id) is None:
+                return False
+            s.patient_id = patient_id
+            session.commit()
+            return True
+        finally:
+            session.close()
+
+    def delete_session(self, token_hash: str) -> None:
+        session = self.SessionLocal()
+        try:
+            session.query(AuthSession).filter(AuthSession.token_hash == token_hash).delete()
+            session.commit()
         finally:
             session.close()
 

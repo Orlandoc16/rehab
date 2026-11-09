@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% import "partials/_ui.html" as ui with context %}
+
+{% block body %}
+<body class="font-poppins bg-gradient-to-br from-indigo-50 via-white to-purple-50 min-h-screen">
+    {% call ui.site_header(subtitle="PACIENTES") %}{% endcall %}
+
+    <main class="container mx-auto max-w-3xl px-4 pt-24 md:pt-28 pb-12">
+        <div class="flex items-start justify-between gap-4 mb-6">
+            <div>
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-800">Hola, {{ session.therapist_name }}</h2>
+                <p class="text-gray-500">¿Con qué paciente vas a trabajar?</p>
+            </div>
+            <form method="post" action="/logout">
+                <button type="submit" class="px-4 py-2 rounded-xl text-gray-600 hover:bg-white hover:shadow-sm font-medium flex items-center gap-2">
+                    <i class="fas fa-right-from-bracket"></i> Salir
+                </button>
+            </form>
+        </div>
+
+        <ul class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8" aria-label="Pacientes">
+            {% for p in patients %}
+            <li>
+                <form method="post" action="/patients/select">
+                    <input type="hidden" name="patient_id" value="{{ p.id }}">
+                    <input type="hidden" name="next" value="{{ next }}">
+                    <button type="submit"
+                        class="w-full text-left bg-white rounded-2xl p-5 shadow-sm border-2 {{ 'border-primary' if session.patient_id == p.id else 'border-transparent' }} hover:border-indigo-200 hover:shadow-md transition flex items-center gap-4">
+                        <span class="w-12 h-12 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-lg font-bold flex-shrink-0">
+                            {{ p.name[:1] | upper }}
+                        </span>
+                        <span class="min-w-0">
+                            <span class="block font-bold text-gray-800 truncate">{{ p.name }}</span>
+                            <span class="block text-sm text-gray-500 truncate">
+                                {%- if p.age %}{{ p.age }} años · {% endif -%}
+                                {%- if p.diagnosis %}{{ p.diagnosis }} · {% endif -%}
+                                {{ p.attempts }} intentos
+                            </span>
+                            {% if session.patient_id == p.id %}<span class="block text-xs font-medium text-primary mt-1">Paciente actual</span>{% endif %}
+                        </span>
+                    </button>
+                </form>
+            </li>
+            {% else %}
+            <li class="col-span-full text-gray-500">Todavía no hay pacientes. Añade el primero.</li>
+            {% endfor %}
+        </ul>
+
+        <details class="bg-white rounded-2xl shadow-sm p-5" {% if not patients %}open{% endif %}>
+            <summary class="cursor-pointer font-bold text-gray-800 flex items-center gap-2">
+                <i class="fas fa-user-plus text-primary"></i> Nuevo paciente
+            </summary>
+            <form method="post" action="/patients/new" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                <input type="hidden" name="next" value="{{ next }}">
+                <label class="flex flex-col gap-1 text-sm font-medium text-gray-700 sm:col-span-2">
+                    Nombre
+                    <input name="name" required maxlength="80" class="px-4 py-3 rounded-xl border border-gray-200 text-base focus:border-primary focus:ring-2 focus:ring-indigo-200 outline-none">
+                </label>
+                <label class="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                    Edad <span class="text-gray-400 font-normal">(opcional)</span>
+                    <input name="age" inputmode="numeric" pattern="[0-9]*" maxlength="3" class="px-4 py-3 rounded-xl border border-gray-200 text-base focus:border-primary focus:ring-2 focus:ring-indigo-200 outline-none">
+                </label>
+                <label class="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                    Diagnóstico <span class="text-gray-400 font-normal">(opcional)</span>
+                    <input name="diagnosis" maxlength="120" class="px-4 py-3 rounded-xl border border-gray-200 text-base focus:border-primary focus:ring-2 focus:ring-indigo-200 outline-none">
+                </label>
+                <label class="flex flex-col gap-1 text-sm font-medium text-gray-700 sm:col-span-2">
+                    Notas <span class="text-gray-400 font-normal">(opcional)</span>
+                    <textarea name="notes" rows="2" maxlength="1000" class="px-4 py-3 rounded-xl border border-gray-200 text-base focus:border-primary focus:ring-2 focus:ring-indigo-200 outline-none"></textarea>
+                </label>
+                <button type="submit" class="sm:col-span-2 py-3 rounded-xl bg-primary text-white font-bold shadow-md hover:bg-indigo-600 transition">
+                    Crear y empezar
+                </button>
+            </form>
+        </details>
+
+        {% if samples_enabled() %}
+        <p class="mt-6 text-center">
+            <a href="/samples" class="text-primary font-medium hover:underline">
+                <i class="fas fa-microphone mr-1"></i>Grabar muestras de voz para evaluar el reconocimiento
+            </a>
+        </p>
+        {% endif %}
+    </main>
+</body>
+{% endblock %}

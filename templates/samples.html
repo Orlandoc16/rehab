@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% import "partials/_ui.html" as ui with context %}
+
+{% block body %}
+<body class="font-poppins bg-gradient-to-br from-indigo-50 via-white to-purple-50 min-h-screen">
+    {% call ui.site_header(subtitle="MUESTRAS DE VOZ") %}{% endcall %}
+
+    <main class="container mx-auto max-w-3xl px-4 pt-24 md:pt-28 pb-12">
+        <h2 class="text-2xl md:text-3xl font-bold text-gray-800 mb-2">Muestras de voz para evaluación</h2>
+        <p class="text-gray-600 mb-6">
+            Graba al paciente diciendo una palabra y marca si la pronunció bien. Con estas muestras se
+            mide cuánto acierta el reconocimiento de voz con pacientes reales
+            (<code class="text-sm bg-gray-100 px-1 rounded">tools/eval_speech.py</code>).
+            No se guarda quién es el paciente.
+        </p>
+
+        {% if not enabled %}
+        <div class="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-5">
+            <p class="font-bold mb-1"><i class="fas fa-lock mr-2"></i>La grabación de muestras está desactivada</p>
+            <p>Guarda la voz de pacientes, así que solo se activa si el centro lo decide: arranca el servidor
+               con <code class="bg-white px-1 rounded">EVAL_RECORDING=1</code>. Las muestras quedan en
+               <code class="bg-white px-1 rounded">eval_audio/clinica/</code>, fuera del repositorio.</p>
+        </div>
+        {% else %}
+        <div class="bg-white rounded-2xl shadow-sm p-5 mb-6">
+            <label class="flex items-start gap-3 text-gray-800">
+                <input id="consent" type="checkbox" class="mt-1 w-5 h-5 accent-indigo-600">
+                <span><b>El paciente (o su representante) ha dado su consentimiento</b> para grabar su voz con
+                      el fin de evaluar la aplicación.</span>
+            </label>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm p-5 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <label class="flex flex-col gap-1 text-sm font-medium text-gray-700">Categoría
+                <select id="category" class="px-3 py-2 rounded-xl border border-gray-200 text-base"></select>
+            </label>
+            <label class="flex flex-col gap-1 text-sm font-medium text-gray-700">Nivel
+                <select id="level" class="px-3 py-2 rounded-xl border border-gray-200 text-base">
+                    <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+                    <option value="4">4</option><option value="5">5</option>
+                </select>
+            </label>
+            <label class="flex flex-col gap-1 text-sm font-medium text-gray-700">Palabra
+                <select id="word" class="px-3 py-2 rounded-xl border border-gray-200 text-base"></select>
+            </label>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-lg p-6 text-center">
+            <img id="word-image" alt="" width="128" height="128" class="hidden mx-auto w-32 h-32 object-contain mb-2">
+            <p id="target" class="text-4xl font-bold text-gray-800 mb-4">—</p>
+            <button id="record" type="button" disabled
+                class="w-20 h-20 rounded-full bg-gradient-to-br from-rose-500 to-red-600 text-white text-3xl shadow-lg disabled:opacity-40"
+                aria-label="Grabar">
+                <i id="record-icon" class="fas fa-microphone"></i>
+            </button>
+            <p id="status" class="text-gray-600 mt-3" aria-live="polite">Marca el consentimiento para empezar.</p>
+
+            <div id="review" class="hidden mt-5 border-t pt-5">
+                <audio id="playback" controls class="mx-auto mb-4"></audio>
+                <p class="font-medium text-gray-800 mb-3">¿La pronunciación fue correcta?</p>
+                <div class="flex flex-wrap justify-center gap-3 mb-3">
+                    <button id="mark-correct" type="button" class="px-5 py-3 rounded-xl bg-emerald-600 text-white font-bold">
+                        <i class="fas fa-check mr-2"></i>Correcta
+                    </button>
+                    <button id="mark-incorrect" type="button" class="px-5 py-3 rounded-xl bg-amber-500 text-white font-bold">
+                        <i class="fas fa-times mr-2"></i>Incorrecta
+                    </button>
+                    <button id="discard" type="button" class="px-5 py-3 rounded-xl bg-gray-100 text-gray-700 font-medium">
+                        Descartar
+                    </button>
+                </div>
+                <label id="spoken-wrap" class="hidden flex-col gap-1 text-sm font-medium text-gray-700 max-w-sm mx-auto text-left">
+                    ¿Qué dijo en realidad? <span class="text-gray-400 font-normal">(opcional, ayuda a medir mejor)</span>
+                    <input id="spoken" maxlength="200" class="px-3 py-2 rounded-xl border border-gray-200 text-base">
+                    <button id="save-incorrect" type="button" class="mt-2 py-2 rounded-xl bg-amber-500 text-white font-bold">Guardar como incorrecta</button>
+                </label>
+            </div>
+        </div>
+
+        <p id="summary" class="text-center text-gray-500 mt-4"></p>
+        {% endif %}
+    </main>
+    {% if enabled %}<script src="{{ asset('js/samples.js') }}" defer></script>{% endif %}
+</body>
+{% endblock %}

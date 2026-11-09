@@ -1,79 +1,17 @@
-<!DOCTYPE html>
-<html lang="es">
+{% extends "base.html" %}
+{% import "partials/_ui.html" as ui with context %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title }} - Rehabilitación Vocal con IA</title>
+{% block title %}{{ title }} - Rehabilitación Vocal con IA{% endblock %}
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
-        rel="stylesheet">
-
-    <!-- Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-
+{% block head %}
     <!-- Custom Styles -->
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="{{ asset('css/style.css') }}">
+{% endblock %}
 
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        'poppins': ['Poppins', 'sans-serif'],
-                    },
-                    colors: {
-                        primary: '#6366f1',
-                        secondary: '#8b5cf6',
-                        accent: '#f43f5e',
-                        success: '#10b981',
-                        warning: '#f59e0b',
-                    }
-                }
-            }
-        }
-    </script>
-<style id="a11y">:focus-visible{outline:3px solid #1a73e8;outline-offset:2px}.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}</style>
-</head>
-
+{% block body %}
 <body class="font-poppins bg-gradient-to-br from-indigo-50 via-white to-purple-50 min-h-screen">
     <!-- Header -->
-    <header class="fixed top-0 w-full z-50 glass-effect border-b border-white/40 shadow-sm transition-all duration-300">
-        <nav class="container mx-auto px-4 py-3">
-            <div class="flex items-center justify-between">
-                <!-- Logo -->
-                <a href="/" class="flex items-center space-x-3 group">
-                    <div
-                        class="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-300">
-                        <i class="fas fa-microphone-alt text-white text-lg md:text-xl"></i>
-                    </div>
-                    <div>
-                        <h1 class="text-lg md:text-xl font-bold text-gray-800 leading-tight">Rehab Voice</h1>
-                        <p class="text-[10px] md:text-xs text-primary font-medium tracking-wide">IA REHABILITATION</p>
-                    </div>
-                </a>
-
-                <!-- Desktop Menu -->
-                <div
-                    class="hidden md:flex items-center space-x-1 lg:space-x-2 bg-white/50 p-1.5 rounded-2xl border border-white/50 backdrop-blur-sm">
-                    <a href="/"
-                        class="px-4 py-2 rounded-xl text-gray-600 font-medium hover:bg-white hover:text-primary hover:shadow-sm transition-all">Inicio</a>
-                    <a href="/practice"
-                        class="px-4 py-2 rounded-xl text-gray-600 font-medium hover:bg-white hover:text-primary hover:shadow-sm transition-all">Practicar</a>
-                    <a href="/communicator"
-                        class="px-4 py-2 rounded-xl text-gray-600 font-medium hover:bg-white hover:text-primary hover:shadow-sm transition-all">Comunicador</a>
-                    <a href="/games"
-                        class="px-4 py-2 rounded-xl text-gray-600 font-medium hover:bg-white hover:text-primary hover:shadow-sm transition-all">Juegos</a>
-                    <a href="/progress"
-                        class="px-4 py-2 rounded-xl text-gray-600 font-medium hover:bg-white hover:text-primary hover:shadow-sm transition-all">Progreso</a>
-                </div>
-
-                <!-- Points & Mobile Toggle -->
-                <div class="flex items-center gap-3">
+    {% call ui.site_header() %}
                     <div
                         class="flex items-center bg-gradient-to-r from-amber-400 to-orange-500 pl-3 pr-4 py-1.5 rounded-full shadow-md text-white">
                         <div class="bg-white/20 p-1 rounded-full mr-2">
@@ -81,53 +19,7 @@
                         </div>
                         <span class="font-bold text-sm" id="total-points">0</span>
                     </div>
-
-                    <!-- Mobile Toggle Button -->
-                    <button onclick="UI.toggleMobileMenu()" id="mobile-menu-btn" aria-label="Abrir menú de navegación"
-                        class="md:hidden w-10 h-10 bg-white rounded-xl shadow-md border border-gray-100 flex items-center justify-center text-gray-600 hover:text-primary active:scale-95 transition-all">
-                        <i class="fas fa-bars text-xl" id="menu-icon"></i>
-                    </button>
-                </div>
-            </div>
-        </nav>
-
-        <!-- Mobile Menu (Hidden by default) -->
-        <div id="mobile-menu"
-            class="mobile-menu absolute top-full left-0 w-full bg-white/95 backdrop-blur-xl border-b border-gray-100 shadow-xl lg:hidden">
-            <div class="container mx-auto px-4 py-6 flex flex-col gap-4">
-                <a href="/"
-                    class="flex items-center p-3 rounded-xl hover:bg-indigo-50 text-gray-700 font-medium transition-colors">
-                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3 text-indigo-600">
-                        <i class="fas fa-home"></i></div>
-                    Inicio
-                </a>
-                <a href="/practice"
-                    class="flex items-center p-3 rounded-xl hover:bg-indigo-50 text-gray-700 font-medium transition-colors">
-                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3 text-indigo-600">
-                        <i class="fas fa-microphone"></i></div>
-                    Practicar
-                </a>
-                <a href="/communicator"
-                    class="flex items-center p-3 rounded-xl hover:bg-indigo-50 text-gray-700 font-medium transition-colors">
-                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3 text-indigo-600">
-                        <i class="fas fa-comments"></i></div>
-                    Comunicador
-                </a>
-                <a href="/games"
-                    class="flex items-center p-3 rounded-xl hover:bg-indigo-50 text-gray-700 font-medium transition-colors">
-                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3 text-indigo-600">
-                        <i class="fas fa-gamepad"></i></div>
-                    Juegos
-                </a>
-                <a href="/progress"
-                    class="flex items-center p-3 rounded-xl hover:bg-indigo-50 text-gray-700 font-medium transition-colors">
-                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3 text-indigo-600">
-                        <i class="fas fa-chart-line"></i></div>
-                    Progreso
-                </a>
-            </div>
-        </div>
-    </header>
+    {% endcall %}
 
     <!-- Main Content -->
     <main class="container mx-auto px-4 py-8 pt-24 md:pt-28">
@@ -178,7 +70,7 @@
         </section>
 
         <!-- Features Grid -->
-        <section class="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
             <div class="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all group">
                 <div
                     class="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
@@ -246,7 +138,7 @@
         </section>
 
         <!-- Quick Stats -->
-        <section class="grid md:grid-cols-3 gap-6 mb-12">
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
             <div class="bg-white rounded-2xl p-6 shadow-lg text-center">
                 <div class="text-4xl font-bold text-primary mb-2" id="stat-words">0</div>
                 <p class="text-gray-600">Palabras Practicadas</p>
@@ -275,7 +167,6 @@
     </footer>
 
     <!-- Scripts -->
-    <script src="/static/js/app.js"></script>
     <script>
         // Cargar datos iniciales
         document.addEventListener('DOMContentLoaded', async () => {
@@ -339,5 +230,4 @@
     </script>
 <div aria-live="polite" aria-atomic="true" class="visually-hidden" id="anunciador"></div><script>window.anunciar = t => { const el = document.getElementById('anunciador'); if (el) el.textContent = t; };</script>
 </body>
-
-</html>
+{% endblock %}

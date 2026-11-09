@@ -1,0 +1,14 @@
+{
+  "name": "rehab-voice",
+  "private": true,
+  "description": "Herramientas de frontend de Rehab Voice (generar el CSS y comprobar tipos del JS).",
+  "scripts": {
+    "build:css": "tailwindcss -i static/css/tailwind.input.css -o static/css/app.css --minify",
+    "watch:css": "tailwindcss -i static/css/tailwind.input.css -o static/css/app.css --watch",
+    "check:js": "tsc -p jsconfig.json && tsc -p static/jsconfig.sw.json"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17",
+    "typescript": "5.6.3"
+  }
+}

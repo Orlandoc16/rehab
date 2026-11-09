@@ -1,29 +1,7 @@
-<!DOCTYPE html>
-<html lang="es">
+{% extends "base.html" %}
+{% import "partials/_ui.html" as ui with context %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title }}</title>
-
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { 'poppins': ['Poppins', 'sans-serif'] },
-                    boxShadow: {
-                        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.1)',
-                        'inner-strong': 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)',
-                    }
-                }
-            }
-        }
-    </script>
-
+{% block head %}
     <style>
         /* Ajustes de Accesibilidad Adulto Mayor */
         body {
@@ -51,102 +29,20 @@
             width: 0px;
         }
     </style>
-<style id="a11y">:focus-visible{outline:3px solid #1a73e8;outline-offset:2px}.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}</style>
-</head>
+{% endblock %}
 
+{% block body %}
 <body class="font-poppins bg-gray-50 min-h-screen flex flex-col pt-20 md:pt-24">
 
     <!-- Navbar Simple -->
     <!-- Header -->
-    <header class="fixed top-0 w-full z-50 glass-effect border-b border-white/40 shadow-sm transition-all duration-300">
-        <nav class="container mx-auto px-4 py-3">
-            <div class="flex items-center justify-between">
-                <!-- Logo -->
-                <a href="/" class="flex items-center space-x-3 group">
-                    <div
-                        class="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-300">
-                        <i class="fas fa-microphone-alt text-white text-lg md:text-xl"></i>
-                    </div>
-                    <div>
-                        <h1 class="text-lg md:text-xl font-bold text-gray-800 leading-tight">Rehab Voice</h1>
-                        <p class="text-[10px] md:text-xs text-primary font-medium tracking-wide">COMUNICADOR</p>
-                    </div>
-                </a>
-
-                <!-- Desktop Menu -->
-                <div
-                    class="hidden md:flex items-center space-x-1 lg:space-x-2 bg-white/50 p-1.5 rounded-2xl border border-white/50 backdrop-blur-sm">
-                    <a href="/"
-                        class="px-4 py-2 rounded-xl text-gray-600 font-medium hover:bg-white hover:text-primary hover:shadow-sm transition-all">Inicio</a>
-                    <a href="/practice"
-                        class="px-4 py-2 rounded-xl text-gray-600 font-medium hover:bg-white hover:text-primary hover:shadow-sm transition-all">Practicar</a>
-                    <a href="/communicator"
-                        class="px-4 py-2 rounded-xl bg-white text-primary shadow-sm font-medium transition-all">Comunicador</a>
-                    <a href="/games"
-                        class="px-4 py-2 rounded-xl text-gray-600 font-medium hover:bg-white hover:text-primary hover:shadow-sm transition-all">Juegos</a>
-                    <a href="/progress"
-                        class="px-4 py-2 rounded-xl text-gray-600 font-medium hover:bg-white hover:text-primary hover:shadow-sm transition-all">Progreso</a>
-                </div>
-
-                <!-- Settings & Mobile Toggle -->
-                <div class="flex items-center gap-3">
+    {% call ui.site_header(active="communicator", subtitle="COMUNICADOR") %}
                     <button aria-label="Configuración" onclick="toggleSettings()"
                         class="w-10 h-10 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-600 hover:text-primary hover:shadow-md transition-all"
                         title="Configuración">
                         <i class="fas fa-cog text-xl"></i>
                     </button>
-
-                    <!-- Mobile Toggle Button -->
-                    <button onclick="UI.toggleMobileMenu()" id="mobile-menu-btn" aria-label="Abrir menú de navegación"
-                        class="md:hidden w-10 h-10 bg-white rounded-xl shadow-md border border-gray-100 flex items-center justify-center text-gray-600 hover:text-primary active:scale-95 transition-all">
-                        <i class="fas fa-bars text-xl" id="menu-icon"></i>
-                    </button>
-                </div>
-            </div>
-        </nav>
-
-        <!-- Mobile Menu (Hidden by default) -->
-        <div id="mobile-menu"
-            class="mobile-menu absolute top-full left-0 w-full bg-white/95 backdrop-blur-xl border-b border-gray-100 shadow-xl lg:hidden">
-            <div class="container mx-auto px-4 py-6 flex flex-col gap-4">
-                <a href="/"
-                    class="flex items-center p-3 rounded-xl hover:bg-indigo-50 text-gray-700 font-medium transition-colors">
-                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3 text-indigo-600">
-                        <i class="fas fa-home"></i>
-                    </div>
-                    Inicio
-                </a>
-                <a href="/practice"
-                    class="flex items-center p-3 rounded-xl hover:bg-indigo-50 text-gray-700 font-medium transition-colors">
-                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3 text-indigo-600">
-                        <i class="fas fa-microphone"></i>
-                    </div>
-                    Practicar
-                </a>
-                <a href="/communicator"
-                    class="flex items-center p-3 rounded-xl bg-indigo-50 text-primary font-medium transition-colors">
-                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3 text-indigo-600">
-                        <i class="fas fa-comments"></i>
-                    </div>
-                    Comunicador
-                </a>
-                <a href="/games"
-                    class="flex items-center p-3 rounded-xl hover:bg-indigo-50 text-gray-700 font-medium transition-colors">
-                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3 text-indigo-600">
-                        <i class="fas fa-gamepad"></i>
-                    </div>
-                    Juegos
-                </a>
-                <a href="/progress"
-                    class="flex items-center p-3 rounded-xl hover:bg-indigo-50 text-gray-700 font-medium transition-colors">
-                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3 text-indigo-600">
-                        <i class="fas fa-chart-line"></i>
-                    </div>
-                    Progreso
-                </a>
-            </div>
-        </div>
-    </header>
+    {% endcall %}
 
     <!-- Área de Frase (Siempre visible) -->
     <!-- Área de Frase (Siempre visible) -->
@@ -174,6 +70,7 @@
                     <i class="fas fa-trash-alt text-xl"></i>
                 </button>
             </div>
+            <p id="comm-status" class="hidden mt-3 text-sm text-center rounded-lg px-3 py-2" role="status" aria-live="polite"></p>
         </div>
     </div>
 
@@ -191,9 +88,15 @@
         </div>
 
         <!-- Grid de Pictogramas -->
-        <div id="pictogram-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-20">
+        <div id="pictogram-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             <!-- Se llena dinámicamente -->
         </div>
+
+        <!-- Atribución obligatoria (licencia CC BY-NC-SA de ARASAAC) -->
+        <p class="text-xs text-gray-400 text-center pb-20">
+            Pictogramas: Sergio Palao · <a href="https://arasaac.org" target="_blank" rel="noopener" class="underline hover:text-gray-600">ARASAAC</a>
+            (Gobierno de Aragón) · Licencia <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.es" target="_blank" rel="noopener" class="underline hover:text-gray-600">CC BY-NC-SA</a>
+        </p>
 
     </main>
 
@@ -219,7 +122,18 @@
         // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', async () => {
             await loadConfig();
+            if (!navigator.onLine) showStatus('Sin conexión: el comunicador funciona con lo guardado.', 'warn');
         });
+        window.addEventListener('offline', () => showStatus('Sin conexión: el comunicador funciona con lo guardado.', 'warn'));
+        window.addEventListener('online', () => showStatus(''));
+
+        function showStatus(text, kind = 'info') {
+            const el = document.getElementById('comm-status');
+            el.textContent = text;
+            el.className = 'mt-3 text-sm text-center rounded-lg px-3 py-2 ' +
+                (kind === 'warn' ? 'bg-amber-50 text-amber-800' : 'bg-indigo-50 text-indigo-800');
+            el.classList.toggle('hidden', !text);
+        }
 
         async function loadConfig() {
             try {
@@ -241,7 +155,9 @@
                 }
             } catch (e) {
                 console.error("Error loading AAC config:", e);
-                alert("Error cargando configuración. Por favor recarga la página.");
+                DOM.tabs.innerHTML = '';
+                DOM.grid.innerHTML = '<p class="col-span-full text-center text-gray-600 py-8">No se pudieron cargar los pictogramas. Comprueba la conexión y vuelve a intentarlo.</p>';
+                showStatus('Sin conexión y sin datos guardados todavía: abre la app una vez con conexión.', 'warn');
             }
         }
 
@@ -269,7 +185,7 @@
             DOM.grid.innerHTML = items.map(item => {
                 const isImage = item.icon_src.includes('/') || item.icon_src.includes('.');
                 const content = isImage
-                    ? `<img src="${item.icon_src}" alt="${item.label}" class="w-20 h-20 md:w-24 md:h-24 object-contain mb-2 pointer-events-none">`
+                    ? `<img src="${item.icon_src}" alt="${item.label}" width="96" height="96" loading="lazy" decoding="async" class="w-20 h-20 md:w-24 md:h-24 object-contain mb-2 pointer-events-none">`
                     : `<i class="fas ${item.icon_src} text-5xl md:text-6xl text-gray-700 mb-3 pointer-events-none"></i>`;
 
                 return `
@@ -395,19 +311,16 @@ return;
             const text = DOM.display.textContent;
             if (!text || text === DOM.placeholder.textContent) return;
 
-            try {
-                // Usar la API de TTS existente
-                const url = `/api/speak/${encodeURIComponent(text)}?t=${new Date().getTime()}`;
-                DOM.audio.src = url;
-                await DOM.audio.play();
+            // Visual feedback
+            DOM.display.classList.add('ring-4', 'ring-indigo-300');
+            setTimeout(() => DOM.display.classList.remove('ring-4', 'ring-indigo-300'), 1000);
 
-                // Visual feedback
-                DOM.display.classList.add('ring-4', 'ring-indigo-300');
-                setTimeout(() => DOM.display.classList.remove('ring-4', 'ring-indigo-300'), 1000);
-            } catch (e) {
-                console.error("Error playing audio", e);
-                alert("Error al reproducir voz.");
-            }
+            // Voz del servidor (Piper) o, si no está disponible, la del dispositivo (static/js/voice.js).
+            // Sin parámetro anti-caché: así una frase ya dicha puede repetirse sin conexión.
+            const used = await playVoice(DOM.audio, `/api/speak/${encodeURIComponent(text)}`, text);
+            if (used === 'server') showStatus('');
+            else if (used === 'device') showStatus('Sin conexión con el servidor: usando la voz del dispositivo.', 'warn');
+            else showStatus('No se pudo reproducir la voz. Comprueba la conexión.', 'warn');
         }
 
         // --- HELPER ---
@@ -418,5 +331,4 @@ return;
     </script>
 <div aria-live="polite" aria-atomic="true" class="visually-hidden" id="anunciador"></div><script>window.anunciar = t => { const el = document.getElementById('anunciador'); if (el) el.textContent = t; };</script>
 </body>
-
-</html>
+{% endblock %}

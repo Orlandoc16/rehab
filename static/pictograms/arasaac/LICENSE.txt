@@ -1,0 +1,15 @@
+Pictogramas de ARASAAC
+
+Autor pictogramas: Sergio Palao. Origen: ARASAAC (https://arasaac.org).
+Licencia: CC (BY-NC-SA) 4.0 - https://creativecommons.org/licenses/by-nc-sa/4.0/deed.es
+Propiedad: Gobierno de Aragón (España).
+
+Uso no comercial. Los archivos de esta carpeta son versiones adaptadas (256 px, WebP, fondo blanco)
+y se distribuyen con la misma licencia. Cada archivo se llama como su identificador en ARASAAC.
+
+Los archivos c_*.webp son composiciones (obra derivada) hechas con tools/compose_pictograms.py
+combinando pictogramas de ARASAAC a color, para conceptos que ARASAAC solo ofrece en blanco y
+negro. Se distribuyen con la misma licencia CC BY-NC-SA 4.0. Piezas usadas:
+  hombre 4665, mujer 24621, niño 7176, niña 27509, abuelo 23718, abuela 23710,
+  anillos de boda 24887, casa 2317, paciente tumbado en la cama 39532, cabeza de niño 2485,
+  tener hambre 7272, sediento 7273.

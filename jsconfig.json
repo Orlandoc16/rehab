@@ -1,0 +1,13 @@
+{
+  // Comprobación de tipos del JavaScript (sin compilar nada): npm run check:js
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": true,
+    "target": "es2020",
+    "lib": ["es2020", "dom", "dom.iterable"],
+    "types": []
+  },
+  "files": ["static/js/nav.js", "static/js/sw-register.js", "static/js/voice.js", "static/js/samples.js"]
+}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block body %}
+<body class="font-poppins bg-gradient-to-br from-indigo-50 via-white to-purple-50 min-h-screen flex items-center justify-center p-4">
+    <main class="w-full max-w-sm">
+        <div class="flex flex-col items-center mb-8">
+            <div class="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center shadow-lg mb-4">
+                <i class="fas fa-microphone-alt text-white text-2xl"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-800">Rehab Voice</h1>
+            <p class="text-sm text-gray-500">Acceso para terapeutas</p>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-lg p-6">
+            {% if logged_out %}
+            <p class="mb-4 text-sm rounded-lg px-3 py-2 bg-indigo-50 text-indigo-800" role="status">Has cerrado sesión.</p>
+            {% endif %}
+            {% if error %}
+            <p class="mb-4 text-sm rounded-lg px-3 py-2 bg-red-50 text-red-700" role="alert">{{ error }}</p>
+            {% endif %}
+            {% if no_users %}
+            <p class="mb-4 text-sm rounded-lg px-3 py-2 bg-amber-50 text-amber-800" role="status">
+                Todavía no hay ninguna cuenta. Créala en el servidor con:<br>
+                <code class="text-xs">python tools/create_therapist.py</code>
+            </p>
+            {% endif %}
+
+            <form method="post" action="/login" class="flex flex-col gap-4">
+                <input type="hidden" name="next" value="{{ next }}">
+                <label class="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                    Usuario
+                    <input name="username" value="{{ username or '' }}" required autocomplete="username" autocapitalize="none" spellcheck="false"
+                        {% if not username %}autofocus{% endif %}
+                        class="px-4 py-3 rounded-xl border border-gray-200 text-base focus:border-primary focus:ring-2 focus:ring-indigo-200 outline-none">
+                </label>
+                <label class="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                    Contraseña
+                    <input name="password" type="password" required autocomplete="current-password" {% if username %}autofocus{% endif %}
+                        class="px-4 py-3 rounded-xl border border-gray-200 text-base focus:border-primary focus:ring-2 focus:ring-indigo-200 outline-none">
+                </label>
+                <button type="submit"
+                    class="mt-2 py-3 rounded-xl bg-primary text-white font-bold text-lg shadow-md hover:bg-indigo-600 active:scale-[0.98] transition flex items-center justify-center gap-2">
+                    <i class="fas fa-lock text-base"></i> Entrar
+                </button>
+            </form>
+        </div>
+    </main>
+
+    {% if logged_out %}
+    <script>
+        // Al cerrar sesión se borra la copia sin conexión guardada en este dispositivo
+        if ('caches' in window) {
+            caches.keys().then((keys) => keys.filter((k) => k.startsWith('rehab-')).forEach((k) => caches.delete(k)));
+        }
+    </script>
+    {% endif %}
+</body>
+{% endblock %}

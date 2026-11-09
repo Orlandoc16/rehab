@@ -1,0 +1,95 @@
+{# Cabecera común: logo, menú de escritorio, hueco derecho (caller) y menú móvil.
+   Uso:
+     {% call ui.site_header(active="practice", subtitle="PRÁCTICA") %} ...botones a la derecha... {% endcall %}
+#}
+{% set NAV = [
+    ("/", "home", "Inicio", "fa-home"),
+    ("/practice", "practice", "Practicar", "fa-microphone"),
+    ("/communicator", "communicator", "Comunicador", "fa-comments"),
+    ("/games", "games", "Juegos", "fa-gamepad"),
+    ("/progress", "progress", "Progreso", "fa-chart-line"),
+] %}
+
+{% macro site_header(active=none, subtitle="IA REHABILITATION") -%}
+    <header class="fixed top-0 w-full z-50 glass-effect border-b border-white/40 shadow-sm transition-all duration-300">
+        <nav class="container mx-auto px-4 py-3">
+            <div class="flex items-center justify-between">
+                <!-- Logo -->
+                <a href="/" class="flex items-center space-x-3 group">
+                    <div
+                        class="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-300">
+                        <i class="fas fa-microphone-alt text-white text-lg md:text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg md:text-xl font-bold text-gray-800 leading-tight">Rehab Voice</h1>
+                        <p class="text-[10px] md:text-xs text-primary font-medium tracking-wide">{{ subtitle }}</p>
+                    </div>
+                </a>
+
+                <!-- Desktop Menu -->
+                <div
+                    class="hidden md:flex items-center space-x-1 lg:space-x-2 bg-white/50 p-1.5 rounded-2xl border border-white/50 backdrop-blur-sm">
+                    {%- for href, key, label, icon in NAV %}
+                    <a href="{{ href }}"
+                        {% if key == active %}class="px-4 py-2 rounded-xl bg-white text-primary shadow-sm font-medium transition-all"{% else %}class="px-4 py-2 rounded-xl text-gray-600 font-medium hover:bg-white hover:text-primary hover:shadow-sm transition-all"{% endif %}>{{ label }}</a>
+                    {%- endfor %}
+                </div>
+
+                <!-- Right side & Mobile Toggle -->
+                <div class="flex items-center gap-3">
+                    {%- if session and session.patient_name %}
+                    <a href="/patients" title="Cambiar de paciente"
+                        class="hidden lg:flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full bg-indigo-50 text-indigo-700 text-sm font-medium hover:bg-indigo-100 transition-colors">
+                        <span class="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center"><i class="fas fa-user text-xs"></i></span>
+                        <span class="max-w-[10rem] truncate">{{ session.patient_name }}</span>
+                    </a>
+                    <form method="post" action="/logout" class="hidden lg:block">
+                        <button type="submit" title="Cerrar sesión" aria-label="Cerrar sesión"
+                            class="w-10 h-10 rounded-xl bg-white border border-gray-100 shadow-sm flex items-center justify-center text-gray-500 hover:text-primary transition-colors">
+                            <i class="fas fa-right-from-bracket"></i>
+                        </button>
+                    </form>
+                    {%- endif %}
+                    {{ caller() }}
+
+                    <!-- Mobile Toggle Button -->
+                    <button type="button" id="mobile-menu-btn" aria-label="Abrir menú de navegación" aria-controls="mobile-menu" aria-expanded="false"
+                        class="md:hidden w-10 h-10 bg-white rounded-xl shadow-md border border-gray-100 flex items-center justify-center text-gray-600 hover:text-primary active:scale-95 transition-all">
+                        <i class="fas fa-bars text-xl" id="menu-icon"></i>
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Mobile Menu (Hidden by default) -->
+        <div id="mobile-menu"
+            class="mobile-menu absolute top-full left-0 w-full bg-white/95 backdrop-blur-xl border-b border-gray-100 shadow-xl lg:hidden">
+            <div class="container mx-auto px-4 py-6 flex flex-col gap-4">
+                {%- for href, key, label, icon in NAV %}
+                <a href="{{ href }}"
+                    {% if key == active %}class="flex items-center p-3 rounded-xl bg-indigo-50 text-primary font-medium transition-colors"{% else %}class="flex items-center p-3 rounded-xl hover:bg-indigo-50 text-gray-700 font-medium transition-colors"{% endif %}>
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3 text-indigo-600">
+                        <i class="fas {{ icon }}"></i>
+                    </div>
+                    {{ label }}
+                </a>
+                {%- endfor %}
+                {%- if session and session.patient_name %}
+                <div class="border-t border-gray-100 pt-4 mt-1 flex items-center gap-3">
+                    <a href="/patients" class="flex-1 flex items-center p-3 rounded-xl bg-indigo-50 text-indigo-700 font-medium">
+                        <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3"><i class="fas fa-user"></i></div>
+                        <span class="truncate">{{ session.patient_name }}</span>
+                        <span class="ml-auto text-xs text-indigo-500">Cambiar</span>
+                    </a>
+                    <form method="post" action="/logout">
+                        <button type="submit" aria-label="Cerrar sesión"
+                            class="p-3 rounded-xl text-gray-600 hover:bg-gray-100 font-medium flex items-center gap-2">
+                            <i class="fas fa-right-from-bracket"></i> Salir
+                        </button>
+                    </form>
+                </div>
+                {%- endif %}
+            </div>
+        </div>
+    </header>
+{%- endmacro %}

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ title }}{% endblock %}</title>
+    <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+    <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">
+    <link rel="apple-touch-icon" href="{{ asset('icons/icon-180.png') }}">
+    <meta name="theme-color" content="#6366f1">
+
+    <!-- Fuente Poppins servida localmente (static/fonts) -->
+    <link rel="stylesheet" href="{{ asset('css/fonts.css') }}">
+
+    <!-- Iconos: subconjunto local de Font Awesome 6.5 (regenerar con tools/build_icons.py) -->
+    <link rel="stylesheet" href="{{ asset('vendor/fontawesome/css/fontawesome.subset.css') }}">
+
+    <!-- Menú móvil de la cabecera (todas las páginas) -->
+    <script src="{{ asset('js/nav.js') }}" defer></script>
+    <!-- Voz: la del servidor y, si no está disponible, la del dispositivo -->
+    <script src="{{ asset('js/voice.js') }}" defer></script>
+    <!-- Modo sin conexión del comunicador -->
+    <script src="{{ asset('js/sw-register.js') }}" defer></script>
+
+    {% block head %}{% endblock %}
+    <style id="a11y">:focus-visible{outline:3px solid #1a73e8;outline-offset:2px}.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}</style>
+
+    <!-- Tailwind compilado (npm run build:css). Va al final: sus utilidades tienen prioridad, como con el CDN. -->
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+</head>
+
+{% block body %}{% endblock %}
+
+</html>

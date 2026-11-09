@@ -1,0 +1,6 @@
+# Herramientas de desarrollo (no necesarias para ejecutar la app)
+# tools/build_icons.py: subconjunto de Font Awesome
+fonttools>=4.55
+brotli>=1.2
+# tools/compose_pictograms.py: pictogramas compuestos a color
+Pillow>=11.0
