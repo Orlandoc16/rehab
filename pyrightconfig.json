@@ -1,0 +1,10 @@
+{
+  "include": ["."],
+  "exclude": ["venv", "**/__pycache__", "piper", "models", "cache", "data", "voices", "static", "templates"],
+  "venvPath": ".",
+  "venv": "venv",
+  "typeCheckingMode": "standard",
+  "reportDeprecated": "warning",
+  "reportUnusedImport": "warning",
+  "reportUnusedVariable": "warning"
+}

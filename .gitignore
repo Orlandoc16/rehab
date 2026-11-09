@@ -1,0 +1,21 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Generated audio cache
+cache/
+
+# Patient data (SQLite database) - keep out of version control
+data/
+
+# Large binaries / models (download separately)
+piper/
+voices/
+models/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

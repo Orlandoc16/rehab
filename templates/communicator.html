@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { 'poppins': ['Poppins', 'sans-serif'] },
+                    boxShadow: {
+                        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.1)',
+                        'inner-strong': 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Ajustes de Accesibilidad Adulto Mayor */
+        body {
+            font-size: 18px;
+        }
+
+        .touch-card {
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            touch-action: manipulation;
+            /* Optimizar para touch */
+        }
+
+        .touch-card:active {
+            transform: scale(0.95);
+        }
+
+        .category-tab.active {
+            border-bottom: 4px solid currentColor;
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        /* Ocultar barra de scroll pero permitir scroll */
+        .hide-scrollbar::-webkit-scrollbar {
+            height: 0px;
+            width: 0px;
+        }
+    </style>
+<style id="a11y">:focus-visible{outline:3px solid #1a73e8;outline-offset:2px}.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}</style>
+</head>
+
+<body class="font-poppins bg-gray-50 min-h-screen flex flex-col pt-20 md:pt-24">
+
+    <!-- Navbar Simple -->
+    <!-- Header -->
+    <header class="fixed top-0 w-full z-50 glass-effect border-b border-white/40 shadow-sm transition-all duration-300">
+        <nav class="container mx-auto px-4 py-3">
+            <div class="flex items-center justify-between">
+                <!-- Logo -->
+                <a href="/" class="flex items-center space-x-3 group">
+                    <div
+                        class="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-300">
+                        <i class="fas fa-microphone-alt text-white text-lg md:text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg md:text-xl font-bold text-gray-800 leading-tight">Rehab Voice</h1>
+                        <p class="text-[10px] md:text-xs text-primary font-medium tracking-wide">COMUNICADOR</p>
+                    </div>
+                </a>
+
+                <!-- Desktop Menu -->
+                <div
+                    class="hidden md:flex items-center space-x-1 lg:space-x-2 bg-white/50 p-1.5 rounded-2xl border border-white/50 backdrop-blur-sm">
+                    <a href="/"
+                        class="px-4 py-2 rounded-xl text-gray-600 font-medium hover:bg-white hover:text-primary hover:shadow-sm transition-all">Inicio</a>
+                    <a href="/practice"
+                        class="px-4 py-2 rounded-xl text-gray-600 font-medium hover:bg-white hover:text-primary hover:shadow-sm transition-all">Practicar</a>
+                    <a href="/communicator"
+                        class="px-4 py-2 rounded-xl bg-white text-primary shadow-sm font-medium transition-all">Comunicador</a>
+                    <a href="/games"
+                        class="px-4 py-2 rounded-xl text-gray-600 font-medium hover:bg-white hover:text-primary hover:shadow-sm transition-all">Juegos</a>
+                    <a href="/progress"
+                        class="px-4 py-2 rounded-xl text-gray-600 font-medium hover:bg-white hover:text-primary hover:shadow-sm transition-all">Progreso</a>
+                </div>
+
+                <!-- Settings & Mobile Toggle -->
+                <div class="flex items-center gap-3">
+                    <button aria-label="Configuración" onclick="toggleSettings()"
+                        class="w-10 h-10 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-600 hover:text-primary hover:shadow-md transition-all"
+                        title="Configuración">
+                        <i class="fas fa-cog text-xl"></i>
+                    </button>
+
+                    <!-- Mobile Toggle Button -->
+                    <button onclick="UI.toggleMobileMenu()" id="mobile-menu-btn" aria-label="Abrir menú de navegación"
+                        class="md:hidden w-10 h-10 bg-white rounded-xl shadow-md border border-gray-100 flex items-center justify-center text-gray-600 hover:text-primary active:scale-95 transition-all">
+                        <i class="fas fa-bars text-xl" id="menu-icon"></i>
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Mobile Menu (Hidden by default) -->
+        <div id="mobile-menu"
+            class="mobile-menu absolute top-full left-0 w-full bg-white/95 backdrop-blur-xl border-b border-gray-100 shadow-xl lg:hidden">
+            <div class="container mx-auto px-4 py-6 flex flex-col gap-4">
+                <a href="/"
+                    class="flex items-center p-3 rounded-xl hover:bg-indigo-50 text-gray-700 font-medium transition-colors">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3 text-indigo-600">
+                        <i class="fas fa-home"></i>
+                    </div>
+                    Inicio
+                </a>
+                <a href="/practice"
+                    class="flex items-center p-3 rounded-xl hover:bg-indigo-50 text-gray-700 font-medium transition-colors">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3 text-indigo-600">
+                        <i class="fas fa-microphone"></i>
+                    </div>
+                    Practicar
+                </a>
+                <a href="/communicator"
+                    class="flex items-center p-3 rounded-xl bg-indigo-50 text-primary font-medium transition-colors">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3 text-indigo-600">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                    Comunicador
+                </a>
+                <a href="/games"
+                    class="flex items-center p-3 rounded-xl hover:bg-indigo-50 text-gray-700 font-medium transition-colors">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3 text-indigo-600">
+                        <i class="fas fa-gamepad"></i>
+                    </div>
+                    Juegos
+                </a>
+                <a href="/progress"
+                    class="flex items-center p-3 rounded-xl hover:bg-indigo-50 text-gray-700 font-medium transition-colors">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3 text-indigo-600">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    Progreso
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Área de Frase (Siempre visible) -->
+    <!-- Área de Frase (Siempre visible) -->
+    <!-- Added top margin to account for fixed header, removed massive internal padding -->
+    <div
+        class="bg-white border-b-2 border-gray-200 p-4 md:p-6 sticky top-[72px] z-40 shadow-soft transition-all duration-300">
+        <div class="container mx-auto max-w-4xl">
+            <!-- Visor de frase -->
+            <div id="sentence-display"
+                class="min-h-[80px] bg-gray-100 rounded-2xl border-2 border-gray-300 flex flex-wrap items-center p-4 mb-4 text-2xl md:text-3xl font-medium text-gray-800 leading-normal transition-all">
+                <span class="text-gray-600 italic" id="placeholder-text">Selecciona imágenes para formar una
+                    frase...</span>
+            </div>
+
+            <!-- Botones de Acción -->
+            <div class="flex gap-4">
+                <button aria-label="Escuchar la frase" onclick="speakSentence()"
+                    class="flex-1 bg-indigo-600 text-white rounded-xl py-4 text-xl font-bold shadow-lg hover:bg-indigo-700 active:bg-indigo-800 transition flex items-center justify-center gap-3">
+                    <i class="fas fa-volume-high text-2xl"></i> HABLAR
+                </button>
+
+                <button onclick="clearSentence()"
+                    class="w-20 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300 transition flex items-center justify-center"
+                    aria-label="Borrar todo">
+                    <i class="fas fa-trash-alt text-xl"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenido Principal -->
+    <main class="flex-1 container mx-auto max-w-4xl p-4 md:p-6 flex flex-col gap-6">
+
+        <!-- Pestañas de Categoría -->
+        <div class="overflow-x-auto hide-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
+            <div class="flex gap-3 pb-2" id="category-tabs">
+                <!-- Se llena dinámicamente -->
+                <div class="animate-pulse bg-gray-200 h-16 w-32 rounded-xl"></div>
+                <div class="animate-pulse bg-gray-200 h-16 w-32 rounded-xl"></div>
+                <div class="animate-pulse bg-gray-200 h-16 w-32 rounded-xl"></div>
+            </div>
+        </div>
+
+        <!-- Grid de Pictogramas -->
+        <div id="pictogram-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-20">
+            <!-- Se llena dinámicamente -->
+        </div>
+
+    </main>
+
+    <!-- Audio Player Oculto -->
+    <audio id="audio-player" class="hidden"></audio>
+
+    <script>
+        // --- CONSTANTS & STATE ---
+        let CONFIG = { categories: [], items: [] };
+        let STATE = {
+            currentCategory: null,
+            sentenceItems: [], // Array de objetos pictograma
+        };
+
+        const DOM = {
+            tabs: document.getElementById('category-tabs'),
+            grid: document.getElementById('pictogram-grid'),
+            display: document.getElementById('sentence-display'),
+            placeholder: document.getElementById('placeholder-text'),
+            audio: document.getElementById('audio-player')
+        };
+
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadConfig();
+        });
+
+        async function loadConfig() {
+            try {
+                const res = await fetch('/api/aac/config');
+                const data = await res.json();
+
+                CONFIG.categories = data.categories;
+                // Parse grammar JSON string into object
+                CONFIG.items = data.items.map(item => ({
+                    ...item,
+                    grammar: item.grammar ? JSON.parse(item.grammar) : {}
+                }));
+
+                renderCategories();
+
+                // Seleccionar primera categoría por defecto
+                if (CONFIG.categories.length > 0) {
+                    selectCategory(CONFIG.categories[0].id);
+                }
+            } catch (e) {
+                console.error("Error loading AAC config:", e);
+                alert("Error cargando configuración. Por favor recarga la página.");
+            }
+        }
+
+        // --- RENDERING ---
+
+        function renderCategories() {
+            DOM.tabs.innerHTML = CONFIG.categories.map(cat => `
+                <button onclick="selectCategory('${cat.id}')" 
+                        class="category-tab flex-shrink-0 flex flex-col items-center justify-center w-28 h-24 rounded-2xl bg-white border-2 border-gray-100 shadow-sm transition hover:bg-gray-50"
+                        style="color: ${invertColor(cat.color, true)}" 
+                        id="tab-${cat.id}"
+                        data-color="${cat.color}">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center mb-1 text-2xl" 
+                         style="background-color: ${cat.color}">
+                        <i class="fas ${cat.icon}"></i>
+                    </div>
+                    <span class="text-sm font-bold text-gray-700 text-center leading-tight px-1">${cat.label}</span>
+                </button>
+            `).join('');
+        }
+
+        function renderPictograms(categoryId) {
+            const items = CONFIG.items.filter(item => item.category_id === categoryId);
+
+            DOM.grid.innerHTML = items.map(item => {
+                const isImage = item.icon_src.includes('/') || item.icon_src.includes('.');
+                const content = isImage
+                    ? `<img src="${item.icon_src}" alt="${item.label}" class="w-20 h-20 md:w-24 md:h-24 object-contain mb-2 pointer-events-none">`
+                    : `<i class="fas ${item.icon_src} text-5xl md:text-6xl text-gray-700 mb-3 pointer-events-none"></i>`;
+
+                return `
+                <button onclick="addToSentence('${item.id}')"
+                        class="touch-card bg-white rounded-2xl aspect-square flex flex-col items-center justify-center p-2 shadow-md hover:shadow-lg border-2 border-transparent hover:border-indigo-200 focus:outline-none focus:ring-4 focus:ring-indigo-300">
+                    ${content}
+                    <span class="text-lg md:text-xl font-bold text-gray-800 text-center leading-tight">
+                        ${item.label}
+                    </span>
+                </button>
+                `;
+            }).join('');
+        }
+
+        // --- LOGIC ---
+
+        function selectCategory(catId) {
+            // Update UI tabs
+            document.querySelectorAll('.category-tab').forEach(el => {
+                el.classList.remove('active', 'bg-gray-100', 'ring-2', 'ring-offset-2');
+                el.style.backgroundColor = 'white';
+            });
+
+            const activeTab = document.getElementById(`tab-${catId}`);
+            if (activeTab) {
+                activeTab.classList.add('active');
+                // Subtle background hint
+                const color = activeTab.dataset.color;
+                activeTab.style.backgroundColor = color;
+            }
+
+            STATE.currentCategory = catId;
+            renderPictograms(catId);
+        }
+
+        function addToSentence(itemId) {
+            const item = CONFIG.items.find(i => i.id === itemId);
+            if (!item) return;
+
+            STATE.sentenceItems.push(item);
+            updateDisplay();
+
+            // Feedback táctil suave si disponible
+            if (navigator.vibrate) navigator.vibrate(50);
+        }
+
+        function clearSentence() {
+            STATE.sentenceItems = [];
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            if (STATE.sentenceItems.length === 0) {
+                DOM.display.innerHTML = '';
+                DOM.display.appendChild(DOM.placeholder);
+anunciar('Frase borrada');
+return;
+            }
+
+            const phraseText = constructPhrase(STATE.sentenceItems);
+            DOM.display.textContent = phraseText;
+            anunciar(phraseText);
+        }
+
+        function constructPhrase(items) {
+            if (!items || items.length === 0) return "";
+            if (items.length === 1) return items[0].default_phrase || items[0].label;
+
+            // 1. COMBINACIONES ESPECIALES (Heurística ID+ID)
+            // Detectar secuencias específicas que requieren conector "con", "de", "para", etc.
+            const ids = items.map(i => i.id).join("+");
+            const SPECIAL_COMBOS = {
+                "help_up+wheelchair": "Ayúdame a levantarme con la silla de ruedas",
+                "sit_down+chair": "Quiero sentarme en la silla",
+                "shower+soap": "Quiero bañarme con jabón",
+                "coffee+milk": "Quiero café con leche",
+                "bread+coffee": "Quiero pan y café"
+            };
+            if (SPECIAL_COMBOS[ids]) return SPECIAL_COMBOS[ids];
+
+            // 2. FUSIÓN DE PREFIJOS (Listas inteligentes)
+            // Si todos los elementos empiezan con el mismo verbo ("Quiero", "Necesito"), fusionarlos.
+            const firstPhrase = items[0].default_phrase;
+            const firstWord = firstPhrase.split(" ")[0]; // "Quiero", "Necesito", "Tengo"
+
+            // Verificar si es un verbo de "petición" común
+            const isRequestVerb = ["Quiero", "Necesito", "Tengo", "Dame"].includes(firstWord);
+
+            if (isRequestVerb) {
+                // Verificar si todos comparten el prefijo, o si los siguientes son sustantivos simples (grammar.noun)
+                const consistent = items.every((item, index) => {
+                    if (index === 0) return true;
+                    // Compatible si tiene el mismo prefijo O si es un sustantivo puro
+                    const startsSame = item.default_phrase.startsWith(firstWord + " ");
+                    const isNoun = item.grammar && item.grammar.noun;
+                    return startsSame || isNoun;
+                });
+
+                if (consistent) {
+                    // Extraer los objetos
+                    const objects = items.map(item => {
+                        if (item.default_phrase.startsWith(firstWord + " ")) {
+                            return item.default_phrase.substring(firstWord.length + 1);
+                        }
+                        // Si es noun directo o frase distinta, usar label o noun en minúscula
+                        return (item.grammar && item.grammar.noun) || item.label.toLowerCase();
+                    });
+
+                    // Unir lista: "A, B y C"
+                    if (objects.length > 1) {
+                        const last = objects.pop();
+                        return `${firstWord} ${objects.join(", ")} y ${last}`;
+                    }
+                }
+            }
+
+            // 3. CONCATENACIÓN CONTEXTUAL
+            // Unir frases completas con puntuación para darle pausas naturales al TTS
+            return items.map(i => i.default_phrase).join(". ");
+        }
+
+        async function speakSentence() {
+            const text = DOM.display.textContent;
+            if (!text || text === DOM.placeholder.textContent) return;
+
+            try {
+                // Usar la API de TTS existente
+                const url = `/api/speak/${encodeURIComponent(text)}?t=${new Date().getTime()}`;
+                DOM.audio.src = url;
+                await DOM.audio.play();
+
+                // Visual feedback
+                DOM.display.classList.add('ring-4', 'ring-indigo-300');
+                setTimeout(() => DOM.display.classList.remove('ring-4', 'ring-indigo-300'), 1000);
+            } catch (e) {
+                console.error("Error playing audio", e);
+                alert("Error al reproducir voz.");
+            }
+        }
+
+        // --- HELPER ---
+        function invertColor(hex, bw) {
+            // Función simple para texto oscuro sobre fondo claro
+            return '#374151'; // Gray-700
+        }
+    </script>
+<div aria-live="polite" aria-atomic="true" class="visually-hidden" id="anunciador"></div><script>window.anunciar = t => { const el = document.getElementById('anunciador'); if (el) el.textContent = t; };</script>
+</body>
+
+</html>

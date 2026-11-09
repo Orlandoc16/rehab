@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { 'poppins': ['Poppins', 'sans-serif'] },
+                    colors: {
+                        primary: '#6366f1',
+                        secondary: '#8b5cf6',
+                        accent: '#f43f5e',
+                        success: '#10b981',
+                        warning: '#f59e0b',
+                    }
+                }
+            }
+        }
+    </script>
+<style id="a11y">:focus-visible{outline:3px solid #1a73e8;outline-offset:2px}.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}</style>
+</head>
+
+<body class="font-poppins bg-gradient-to-br from-indigo-50 via-white to-purple-50 min-h-screen">
+    <!-- Header -->
+    <!-- Header -->
+    <header class="fixed top-0 w-full z-50 glass-effect border-b border-white/40 shadow-sm transition-all duration-300">
+        <nav class="container mx-auto px-4 py-3">
+            <div class="flex items-center justify-between">
+                <!-- Logo -->
+                <a href="/" class="flex items-center space-x-3 group">
+                    <div
+                        class="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-300">
+                        <i class="fas fa-microphone-alt text-white text-lg md:text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg md:text-xl font-bold text-gray-800 leading-tight">Rehab Voice</h1>
+                        <p class="text-[10px] md:text-xs text-primary font-medium tracking-wide">PROGRESO</p>
+                    </div>
+                </a>
+
+                <!-- Desktop Menu -->
+                <div
+                    class="hidden md:flex items-center space-x-1 lg:space-x-2 bg-white/50 p-1.5 rounded-2xl border border-white/50 backdrop-blur-sm">
+                    <a href="/"
+                        class="px-4 py-2 rounded-xl text-gray-600 font-medium hover:bg-white hover:text-primary hover:shadow-sm transition-all">Inicio</a>
+                    <a href="/practice"
+                        class="px-4 py-2 rounded-xl text-gray-600 font-medium hover:bg-white hover:text-primary hover:shadow-sm transition-all">Practicar</a>
+                    <a href="/communicator"
+                        class="px-4 py-2 rounded-xl text-gray-600 font-medium hover:bg-white hover:text-primary hover:shadow-sm transition-all">Comunicador</a>
+                    <a href="/games"
+                        class="px-4 py-2 rounded-xl text-gray-600 font-medium hover:bg-white hover:text-primary hover:shadow-sm transition-all">Juegos</a>
+                    <a href="/progress"
+                        class="px-4 py-2 rounded-xl bg-white text-primary shadow-sm font-medium transition-all">Progreso</a>
+                </div>
+
+                <!-- Settings & Mobile Toggle -->
+                <div class="flex items-center gap-3">
+                    <button aria-label="Configuración" onclick="UI.toggleSettings()"
+                        class="w-10 h-10 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-600 hover:text-primary hover:shadow-md transition-all"
+                        title="Configuración">
+                        <i class="fas fa-cog text-xl"></i>
+                    </button>
+
+                    <!-- Mobile Toggle Button -->
+                    <button onclick="UI.toggleMobileMenu()" id="mobile-menu-btn" aria-label="Abrir menú de navegación"
+                        class="md:hidden w-10 h-10 bg-white rounded-xl shadow-md border border-gray-100 flex items-center justify-center text-gray-600 hover:text-primary active:scale-95 transition-all">
+                        <i class="fas fa-bars text-xl" id="menu-icon"></i>
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Mobile Menu (Hidden by default) -->
+        <div id="mobile-menu"
+            class="mobile-menu absolute top-full left-0 w-full bg-white/95 backdrop-blur-xl border-b border-gray-100 shadow-xl lg:hidden">
+            <div class="container mx-auto px-4 py-6 flex flex-col gap-4">
+                <a href="/"
+                    class="flex items-center p-3 rounded-xl hover:bg-indigo-50 text-gray-700 font-medium transition-colors">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3 text-indigo-600">
+                        <i class="fas fa-home"></i>
+                    </div>
+                    Inicio
+                </a>
+                <a href="/practice"
+                    class="flex items-center p-3 rounded-xl hover:bg-indigo-50 text-gray-700 font-medium transition-colors">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3 text-indigo-600">
+                        <i class="fas fa-microphone"></i>
+                    </div>
+                    Practicar
+                </a>
+                <a href="/communicator"
+                    class="flex items-center p-3 rounded-xl hover:bg-indigo-50 text-gray-700 font-medium transition-colors">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3 text-indigo-600">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                    Comunicador
+                </a>
+                <a href="/games"
+                    class="flex items-center p-3 rounded-xl hover:bg-indigo-50 text-gray-700 font-medium transition-colors">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3 text-indigo-600">
+                        <i class="fas fa-gamepad"></i>
+                    </div>
+                    Juegos
+                </a>
+                <a href="/progress"
+                    class="flex items-center p-3 rounded-xl bg-indigo-50 text-primary font-medium transition-colors">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3 text-indigo-600">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    Progreso
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8 pt-24 md:pt-28">
+        <h1
+            class="text-3xl font-bold text-gray-900 mb-8 bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary w-fit">
+            <i class="fas fa-chart-line text-primary mr-3"></i>Mi Progreso
+        </h1>
+
+        <!-- Stats Overview -->
+        <div class="grid md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-2xl p-6 shadow-lg">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-gray-500">Total Intentos</span>
+                    <i class="fas fa-microphone text-primary"></i>
+                </div>
+                <div class="text-3xl font-bold text-gray-800" id="stat-total">0</div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-6 shadow-lg">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-gray-500">Palabras Únicas</span>
+                    <i class="fas fa-book text-blue-500"></i>
+                </div>
+                <div class="text-3xl font-bold text-gray-800" id="stat-unique">0</div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-6 shadow-lg">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-gray-500">Precisión</span>
+                    <i class="fas fa-bullseye text-success"></i>
+                </div>
+                <div class="text-3xl font-bold text-success" id="stat-accuracy">0%</div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-6 shadow-lg">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-gray-500">Mejor Puntuación</span>
+                    <i class="fas fa-star text-warning"></i>
+                </div>
+                <div class="text-3xl font-bold text-warning" id="stat-best">0%</div>
+            </div>
+        </div>
+
+        <div class="grid lg:grid-cols-2 gap-8 mb-8">
+            <!-- Progress Chart -->
+            <div class="bg-white rounded-2xl p-6 shadow-lg">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">
+                    <i class="fas fa-chart-area text-primary mr-2"></i>Progreso Diario
+                </h3>
+                <canvas id="progressChart" height="200"></canvas>
+            </div>
+
+            <!-- Category Progress -->
+            <div class="bg-white rounded-2xl p-6 shadow-lg">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">
+                    <i class="fas fa-tasks text-secondary mr-2"></i>Progreso por Categoría
+                </h3>
+                <div id="category-progress" class="space-y-4">
+                    <!-- Se llena dinámicamente -->
+                </div>
+            </div>
+        </div>
+
+        <div class="grid lg:grid-cols-2 gap-8 mb-8">
+            <!-- Top Words -->
+            <div class="bg-white rounded-2xl p-6 shadow-lg">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">
+                    <i class="fas fa-fire text-orange-500 mr-2"></i>Palabras Más Practicadas
+                </h3>
+                <div id="top-words" class="space-y-3">
+                    <!-- Se llena dinámicamente -->
+                </div>
+            </div>
+
+            <!-- Difficult Words -->
+            <div class="bg-white rounded-2xl p-6 shadow-lg">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">
+                    <i class="fas fa-exclamation-triangle text-red-500 mr-2"></i>Palabras para Mejorar
+                </h3>
+                <div id="difficult-words" class="space-y-3">
+                    <!-- Se llena dinámicamente -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="bg-white rounded-2xl p-6 shadow-lg">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">
+                <i class="fas fa-history text-gray-500 mr-2"></i>Actividad Reciente
+            </h3>
+            <div id="recent-activity" class="space-y-2 max-h-96 overflow-y-auto">
+                <!-- Se llena dinámicamente -->
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let progressChart = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadProgress();
+            await loadDetailedStats();
+        });
+
+        async function loadProgress() {
+            try {
+                const res = await fetch('/api/progress/default');
+                const data = await res.json();
+
+                // Update stats
+                document.getElementById('stat-total').textContent = data.stats.total_attempts || 0;
+                document.getElementById('stat-unique').textContent = data.stats.unique_words || 0;
+                document.getElementById('stat-accuracy').textContent =
+                    Math.round(data.stats.average_score || 0) + '%';
+                document.getElementById('stat-best').textContent =
+                    Math.round(data.stats.best_score || 0) + '%';
+                anunciar('Progreso cargado: ' + (data.stats.total_attempts || 0) + ' intentos, precisión ' + Math.round(data.stats.average_score || 0) + ' por ciento');
+
+                // Update category progress
+                const categoryContainer = document.getElementById('category-progress');
+                categoryContainer.innerHTML = data.by_category.map(cat => {
+                    const progress = cat.total_words > 0
+                        ? Math.round((cat.words_practiced / cat.total_words) * 100)
+                        : 0;
+                    const avgScore = Math.round(cat.avg_score || 0);
+
+                    return `
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="font-medium text-gray-700">${cat.icon || ''} ${cat.name}</span>
+                                <span class="text-sm text-gray-500">${cat.words_practiced || 0}/${cat.total_words} palabras</span>
+                            </div>
+                            <div class="bg-gray-200 rounded-full h-3">
+                                <div class="bg-gradient-to-r from-primary to-secondary rounded-full h-3 transition-all" 
+                                     style="width: ${progress}%"></div>
+                            </div>
+                            <p class="text-xs text-gray-600 mt-1">Precisión promedio: ${avgScore}%</p>
+                        </div>
+                    `;
+                }).join('');
+
+                // Update recent activity
+                const recentContainer = document.getElementById('recent-activity');
+                if (data.recent_attempts && data.recent_attempts.length > 0) {
+                    recentContainer.innerHTML = data.recent_attempts.map(attempt => {
+                        const score = Math.round(attempt.score || 0);
+                        const scoreClass = score >= 70 ? 'text-success' : score >= 50 ? 'text-warning' : 'text-red-500';
+
+                        return `
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                                <div>
+                                    <span class="font-medium text-gray-800">${attempt.word}</span>
+                                    <span class="text-xs text-gray-600 ml-2">${new Date(attempt.created_at).toLocaleString()}</span>
+                                </div>
+                                <span class="font-bold ${scoreClass}">${score}%</span>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    recentContainer.innerHTML = '<p class="text-gray-600 text-center py-8">No hay actividad reciente. ¡Empieza a practicar!</p>';
+                }
+
+            } catch (e) {
+                console.error('Error loading progress:', e);
+            }
+        }
+
+        async function loadDetailedStats() {
+            try {
+                const res = await fetch('/api/stats/default');
+                const data = await res.json();
+                anunciar('Estadísticas detalladas cargadas');
+
+                // Create progress chart
+                createProgressChart(data.daily_progress);
+
+                // Top words
+                const topContainer = document.getElementById('top-words');
+                if (data.top_words && data.top_words.length > 0) {
+                    topContainer.innerHTML = data.top_words.map((word, idx) => `
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                            <div class="flex items-center gap-3">
+                                <span class="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold">${idx + 1}</span>
+                                <span class="font-medium">${word.word}</span>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-sm text-gray-500">${word.attempts} intentos</div>
+                                <div class="font-bold text-success">${Math.round(word.avg_score)}%</div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    topContainer.innerHTML = '<p class="text-gray-600 text-center py-4">Sin datos aún</p>';
+                }
+
+                // Difficult words
+                const difficultContainer = document.getElementById('difficult-words');
+                if (data.difficult_words && data.difficult_words.length > 0) {
+                    difficultContainer.innerHTML = data.difficult_words.map(word => `
+                        <div class="flex items-center justify-between p-3 bg-red-50 rounded-xl">
+                            <span class="font-medium">${word.word}</span>
+                            <div class="text-right">
+                                <div class="text-sm text-gray-500">${word.attempts} intentos</div>
+                                <div class="font-bold text-red-500">${Math.round(word.avg_score)}%</div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    difficultContainer.innerHTML = '<p class="text-gray-600 text-center py-4">¡Vas muy bien! No hay palabras difíciles.</p>';
+                }
+
+            } catch (e) {
+                console.error('Error loading stats:', e);
+            }
+        }
+
+        function createProgressChart(dailyData) {
+            const ctx = document.getElementById('progressChart').getContext('2d');
+
+            // Generate last 14 days labels
+            const labels = [];
+            const data = [];
+            const attempts = [];
+
+            for (let i = 13; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                const dateStr = date.toISOString().split('T')[0];
+                labels.push(date.toLocaleDateString('es', { weekday: 'short', day: 'numeric' }));
+
+                const dayData = dailyData?.find(d => d.date === dateStr);
+                data.push(dayData ? Math.round(dayData.avg_score) : null);
+                attempts.push(dayData ? dayData.attempts : 0);
+            }
+
+            if (progressChart) {
+                progressChart.destroy();
+            }
+
+            progressChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Precisión %',
+                            data: data,
+                            borderColor: '#6366f1',
+                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            spanGaps: true
+                        },
+                        {
+                            label: 'Intentos',
+                            data: attempts,
+                            borderColor: '#10b981',
+                            backgroundColor: 'transparent',
+                            borderDash: [5, 5],
+                            tension: 0.4,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: 'Precisión %'
+                            }
+                        },
+                        y1: {
+                            beginAtZero: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Intentos'
+                            },
+                            grid: {
+                                drawOnChartArea: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+    <script src="/static/js/app.js"></script>
+<div aria-live="polite" aria-atomic="true" class="visually-hidden" id="anunciador"></div><script>window.anunciar = t => { const el = document.getElementById('anunciador'); if (el) el.textContent = t; };</script>
+</body>
+
+</html>
