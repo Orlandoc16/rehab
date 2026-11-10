@@ -9,5 +9,5 @@
     "lib": ["es2020", "dom", "dom.iterable"],
     "types": []
   },
-  "files": ["static/js/nav.js", "static/js/sw-register.js", "static/js/voice.js", "static/js/samples.js"]
+  "files": ["static/js/nav.js", "static/js/sw-register.js", "static/js/voice.js", "static/js/samples.js", "static/js/magnifier.js", "static/js/phrase-builder.js"]
 }

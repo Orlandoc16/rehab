@@ -29,6 +29,7 @@ class ProgressCreate(_Body):
     transcription: str = Field(default="", max_length=500)
     feedback: Optional[Dict[str, Any]] = None
     duration_ms: Optional[float] = Field(default=None, ge=0, le=3_600_000)
+    is_correct: Optional[bool] = None  # acierto según el umbral del nivel (lo da el analizador)
     patient_id: Optional[str] = None  # ignorado: se usa el paciente de la sesión
 
     @field_validator("score")
@@ -48,6 +49,11 @@ class ProgressCreate(_Body):
             data["duration_ms"] = int(data["duration_ms"])
         data["patient_id"] = patient_id
         return data
+
+
+class TherapistLabel(_Body):
+    # True: bien dicho; False: no; None: quitar la valoración (vuelve a contar la automática)
+    correct: Optional[bool] = None
 
 
 class ChallengeComplete(_Body):

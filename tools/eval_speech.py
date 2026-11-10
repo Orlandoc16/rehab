@@ -31,6 +31,7 @@ sys.path.insert(0, str(ROOT))
 
 from voice_processor import VoiceProcessor  # noqa: E402
 
+CURRENT = {"target": ""}  # palabra del audio que se evalúa (configuración pista_objetivo)
 NEUTRAL_PROMPT = "Transcripción literal en español."
 
 
@@ -50,7 +51,8 @@ def make_configs(vp: VoiceProcessor):
         return run
 
     return {
-        "actual": original,                                    # pista = palabra objetivo (comportamiento de hoy)
+        "actual": original,                                    # comportamiento de la app (sin pista desde nov. 2026)
+        "pista_objetivo": with_prompt(lambda _p: CURRENT["target"]),  # (antiguo) pista = palabra objetivo
         "sin_prompt": with_prompt(lambda _p: None),            # sin pista
         "prompt_neutral": with_prompt(lambda _p: NEUTRAL_PROMPT),
         "sin_prompt_beam1": single_pass(1),                    # una sola pasada, más rápida
@@ -87,6 +89,7 @@ def main() -> int:
             t = time.perf_counter()
             with contextlib.redirect_stdout(io.StringIO()):
                 level = args.level or int(row.get("level") or 1)
+                CURRENT["target"] = row["target"]  # para la configuración pista_objetivo
                 result = vp.analyze(path, row["target"], level=level)
             elapsed = time.perf_counter() - t
             heard = norm(result.get("transcription") or "")

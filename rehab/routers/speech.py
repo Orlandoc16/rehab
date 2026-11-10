@@ -1,16 +1,19 @@
 """Análisis de voz (Whisper) y síntesis (TTS)."""
 import asyncio
+import json
 import os
 import tempfile
 import traceback
-from typing import Optional
+from typing import Literal, Optional
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from pydantic import BaseModel, Field
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from .. import settings
-from ..services import voice_processor
+from ..security import current_patient
+from ..services import db, voice_processor
 from voice_processor import NoVoiceAvailableError
 
 router = APIRouter(prefix="/api")
@@ -42,11 +45,28 @@ def _remove_quietly(path: Optional[str]) -> None:
             pass
 
 
+def _parse_browser_transcripts(raw: str) -> list:
+    """Lo que oyó el reconocimiento del navegador (lista JSON de textos). Se acota: viene del cliente."""
+    if not raw:
+        return []
+    try:
+        values = json.loads(raw)
+    except ValueError:
+        return []
+    if not isinstance(values, list):
+        return []
+    # Solo la primera (la que el reconocedor cree más probable): quedarse con la mejor de varias
+    # alternativas sesga hacia la palabra objetivo y da por buenas pronunciaciones incorrectas.
+    return [v.strip()[:200] for v in values if isinstance(v, str) and v.strip()][:1]
+
+
 @router.post("/analyze-voice")
 async def analyze_voice(
+    request: Request,
     audio_file: UploadFile = File(...),
     target_word: str = Form(""),
-    level: int = Form(1)
+    level: int = Form(1),
+    browser_transcripts: str = Form(""),
 ):
     """
     Analiza el audio del usuario y lo compara con la palabra objetivo
@@ -66,8 +86,17 @@ async def analyze_voice(
 
         temp_path = await _save_upload(audio_file)
 
+        patient_id = current_patient(request)
+        # Lo oído por el navegador solo cuenta si el paciente consintió el reconocimiento en la nube
+        alternatives = []
+        if browser_transcripts and await run_in_threadpool(db.get_cloud_speech_consent, patient_id):
+            alternatives = _parse_browser_transcripts(browser_transcripts)
+        # Exigencia ajustada por el terapeuta para este paciente (se lee aquí, no del navegador)
+        profile = await run_in_threadpool(db.get_speech_profile, patient_id)
+
         # Procesar audio con nivel de tolerancia (en un hilo, sin bloquear el servidor)
-        result = await _run_speech(voice_processor.analyze, temp_path, target_word, level=level)
+        result = await _run_speech(voice_processor.analyze, temp_path, target_word, level=level,
+                                   alternatives=alternatives, tolerance_offset=profile["tolerance"])
 
         return JSONResponse(result)
 
@@ -76,6 +105,41 @@ async def analyze_voice(
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         _remove_quietly(temp_path)
+
+
+class SpeechSettings(BaseModel):
+    """Solo se cambian los campos enviados."""
+    cloud_speech: Optional[bool] = None
+    disorder: Optional[Literal["", "afasia", "disartria", "apraxia", "mixto", "otro"]] = None
+    severity: Optional[Literal["", "leve", "moderada", "grave"]] = None
+    max_recording_s: Optional[int] = Field(default=None, ge=5, le=30)
+    pause_s: Optional[float] = Field(default=None, ge=1.0, le=5.0)
+    tolerance: Optional[int] = Field(default=None, ge=-15, le=15)
+
+
+def _speech_settings(patient_id: str) -> dict:
+    consent = db.get_cloud_speech_consent(patient_id)
+    return {"cloud_speech": consent is not None, "consent_at": consent.isoformat() if consent else None,
+            "profile": db.get_speech_profile(patient_id)}
+
+
+@router.get("/speech-settings")
+async def get_speech_settings(request: Request):
+    """Ajustes de voz del paciente activo: consentimiento del reconocimiento en la nube
+    (navegador/Google) y perfil (trastorno, tiempos de grabación, exigencia)."""
+    return await run_in_threadpool(_speech_settings, current_patient(request))
+
+
+@router.post("/speech-settings")
+async def set_speech_settings(settings_in: SpeechSettings, request: Request):
+    """Cambia los ajustes enviados. cloud_speech=true registra la fecha del consentimiento."""
+    patient_id = current_patient(request)
+    if settings_in.cloud_speech is not None:
+        await run_in_threadpool(db.set_cloud_speech_consent, patient_id, settings_in.cloud_speech)
+    profile = settings_in.model_dump(exclude_none=True, exclude={"cloud_speech"})
+    if profile:
+        await run_in_threadpool(db.set_speech_profile, patient_id, profile)
+    return await run_in_threadpool(_speech_settings, patient_id)
 
 
 @router.post("/transcribe")

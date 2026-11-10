@@ -54,7 +54,7 @@
                     +<span id="challenge-points">0</span> puntos
                 </div>
                 <a href="/practice"
-                    class="bg-orange-500 text-white px-6 py-3 rounded-xl font-medium hover:bg-orange-600 transition">
+                    class="bg-orange-700 text-white px-6 py-3 min-h-[48px] rounded-xl font-medium hover:bg-orange-800 transition">
                     <i class="fas fa-play mr-2"></i>Empezar
                 </a>
             </div>
@@ -75,7 +75,7 @@
                 <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-600">Dificultad: ⭐</span>
                     <button onclick="startGame('word_match')"
-                        class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition">
+                        class="bg-blue-700 text-white px-5 py-2 min-h-[48px] rounded-lg font-semibold hover:bg-blue-800 transition">
                         Jugar
                     </button>
                 </div>
@@ -88,11 +88,11 @@
                     <span class="text-3xl">⚡</span>
                 </div>
                 <h4 class="text-lg font-bold text-gray-800 mb-2">Ronda Rápida</h4>
-                <p class="text-gray-600 text-sm mb-4">Di tantas palabras como puedas en 60 segundos.</p>
+                <p class="text-gray-600 text-sm mb-4">Lee en voz alta tantas palabras como puedas en 90 segundos.</p>
                 <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-600">Dificultad: ⭐⭐⭐</span>
                     <button onclick="startGame('speed_round')"
-                        class="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 transition">
+                        class="bg-amber-700 text-white px-5 py-2 min-h-[48px] rounded-lg font-semibold hover:bg-amber-800 transition">
                         Jugar
                     </button>
                 </div>
@@ -105,11 +105,11 @@
                     <span class="text-3xl">🧠</span>
                 </div>
                 <h4 class="text-lg font-bold text-gray-800 mb-2">Memoria</h4>
-                <p class="text-gray-600 text-sm mb-4">Recuerda y repite la secuencia de palabras.</p>
+                <p class="text-gray-600 text-sm mb-4">Mira y escucha las palabras, y repítelas en el mismo orden.</p>
                 <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-600">Dificultad: ⭐⭐⭐</span>
                     <button onclick="startGame('memory')"
-                        class="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition">
+                        class="bg-purple-700 text-white px-5 py-2 min-h-[48px] rounded-lg font-semibold hover:bg-purple-800 transition">
                         Jugar
                     </button>
                 </div>
@@ -122,11 +122,11 @@
                     <span class="text-3xl">📦</span>
                 </div>
                 <h4 class="text-lg font-bold text-gray-800 mb-2">Clasificar Palabras</h4>
-                <p class="text-gray-600 text-sm mb-4">Arrastra cada palabra a su categoría correcta.</p>
+                <p class="text-gray-600 text-sm mb-4">Elige a qué grupo pertenece cada palabra.</p>
                 <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-600">Dificultad: ⭐⭐</span>
                     <button onclick="startGame('category_sort')"
-                        class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition">
+                        class="bg-green-700 text-white px-5 py-2 min-h-[48px] rounded-lg font-semibold hover:bg-green-800 transition">
                         Jugar
                     </button>
                 </div>
@@ -139,11 +139,11 @@
                     <span class="text-3xl">💬</span>
                 </div>
                 <h4 class="text-lg font-bold text-gray-800 mb-2">Completa la Frase</h4>
-                <p class="text-gray-600 text-sm mb-4">Di la palabra que falta en la frase.</p>
+                <p class="text-gray-600 text-sm mb-4">Elige la palabra que falta en la frase.</p>
                 <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-600">Dificultad: ⭐⭐</span>
                     <button onclick="startGame('complete_phrase')"
-                        class="bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600 transition">
+                        class="bg-pink-700 text-white px-5 py-2 min-h-[48px] rounded-lg font-semibold hover:bg-pink-800 transition">
                         Jugar
                     </button>
                 </div>
@@ -173,11 +173,11 @@
                     <span class="text-3xl">🗺️</span>
                 </div>
                 <h4 class="text-lg font-bold text-gray-800 mb-2">Laberinto de Voz</h4>
-                <p class="text-gray-600 text-sm mb-4">Guía al personaje usando tu voz: "Arriba", "Abajo"...</p>
+                <p class="text-gray-600 text-sm mb-4">Guía al mono con tu voz: «Arriba», «Abajo»… (o con las flechas).</p>
                 <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-600">Dificultad: ⭐⭐⭐</span>
                     <button onclick="startGame('maze')"
-                        class="bg-teal-500 text-white px-4 py-2 rounded-lg hover:bg-teal-600 transition">
+                        class="bg-teal-700 text-white px-5 py-2 min-h-[48px] rounded-lg font-semibold hover:bg-teal-800 transition">
                         Jugar
                     </button>
                 </div>
@@ -194,7 +194,7 @@
     </main>
 
     <!-- Game Modal -->
-    <div id="game-modal" class="fixed inset-0 z-[100] hidden overflow-y-auto" aria-labelledby="modal-title"
+    <div id="game-modal" class="fixed inset-0 z-[100] hidden overflow-y-auto" aria-labelledby="game-modal-title"
         role="dialog" aria-modal="true">
         <!-- Backdrop -->
         <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity backdrop-blur-sm" onclick="closeGame()">
@@ -208,7 +208,7 @@
                 <!-- Modal Header -->
                 <div class="bg-gray-50 px-4 py-3 sm:px-6 flex justify-between items-center border-b border-gray-100">
                     <h3 class="text-xl font-bold leading-6 text-gray-900" id="game-modal-title">Juego</h3>
-                    <button type="button" onclick="closeGame()"
+                    <button type="button" id="game-close-btn" onclick="closeGame()" aria-label="Cerrar juego"
                         class="rounded-lg p-2 text-gray-600 hover:text-gray-500 hover:bg-gray-100 focus:outline-none transition-all">
                         <span class="sr-only">Cerrar</span>
                         <i class="fas fa-times text-xl"></i>
@@ -224,871 +224,7 @@
         </div>
     </div>
 
-    <script>
-        // Global Game State
-        let allWords = [];
-        let allCategories = [];
-        let gameActive = false;
-        let currentLevel = 1;
-
-        // Load player data and game assets
-        document.addEventListener('DOMContentLoaded', async () => {
-            await Promise.all([
-                loadPlayerLevel(),
-                loadDailyChallenge(),
-                loadAchievements(),
-                fetchGameData()
-            ]);
-        });
-
-        async function fetchGameData() {
-            try {
-                // Fetch categories
-                const catRes = await fetch('/api/categories');
-                const catData = await catRes.json();
-                allCategories = catData.categories;
-
-                // Fetch words from all categories for the pool
-                // Ideally this would be a single endpoint, but we can fetch a few key categories
-                const categoriesToFetch = ['food_drink', 'basic_needs', 'body_health', 'emotions', 'actions'];
-                let wordsPromises = categoriesToFetch.map(cat => fetch(`/api/words/${cat}`).then(r => r.json()));
-
-                const results = await Promise.all(wordsPromises);
-                allWords = results.flatMap(r => r.words.map(w => ({ ...w, category_id: r.category })));
-
-                console.log(`Loaded ${allWords.length} words for games.`);
-            } catch (e) {
-                console.error("Error loading game data:", e);
-            }
-        }
-
-        async function loadPlayerLevel() {
-            try {
-                const res = await fetch('/api/stats/default'); // Assuming default patient for now
-                if (!res.ok) throw new Error('Failed to fetch stats');
-                // Note: The stats API returns different structure, we might need to adjust or use a dedicated level API
-                // For now, we'll try to use the raw points if available or fallback to local estimation
-                // A better approach is to use the config API or just reuse the logic if backend calculation isn't exposed directly for level
-            } catch (e) { /* ignore */ }
-
-            // Fallback/Simulated for demo if API specific for level text isn't ready
-            const points = parseInt(localStorage.getItem('total_points')) || 0;
-            // We should ideally fetch real points from /api/progress/default -> stats -> total_points logic or sim.
-
-            // ... (keep existing level logic for visual consistency if backend doesn't return "level name")
-            const levels = [
-                { min: 0, name: 'Principiante', icon: '🌱' },
-                { min: 100, name: 'Aprendiz', icon: '🌿' },
-                { min: 300, name: 'Practicante', icon: '🌳' },
-                { min: 600, name: 'Avanzado', icon: '⭐' },
-                { min: 1000, name: 'Experto', icon: '🌟' },
-                { min: 1500, name: 'Maestro', icon: '💫' },
-                { min: 2500, name: 'Gran Maestro', icon: '👑' },
-            ];
-
-            let current = levels[0];
-            let next = levels[1];
-
-            for (let i = 0; i < levels.length; i++) {
-                if (points >= levels[i].min) {
-                    current = levels[i];
-                    next = levels[i + 1] || null;
-                }
-            }
-
-            document.getElementById('player-level').textContent = current.name;
-            document.getElementById('player-icon').textContent = current.icon;
-            document.getElementById('player-points').textContent = points;
-
-            if (next) {
-                const progress = ((points - current.min) / (next.min - current.min)) * 100;
-                document.getElementById('progress-bar').style.width = progress + '%';
-                document.getElementById('progress-percent').textContent = Math.round(progress) + '%';
-                document.getElementById('points-to-next').textContent =
-                    `${next.min - points} puntos para ${next.name}`;
-            } else {
-                document.getElementById('progress-bar').style.width = '100%';
-                document.getElementById('progress-percent').textContent = '¡Máximo!';
-                document.getElementById('points-to-next').textContent = '¡Has alcanzado el nivel máximo!';
-            }
-        }
-
-        async function loadDailyChallenge() {
-            try {
-                const res = await fetch('/api/games/daily-challenge');
-                const data = await res.json();
-
-                document.getElementById('challenge-title').textContent = data.title;
-                document.getElementById('challenge-description').textContent = data.description;
-                document.getElementById('challenge-points').textContent = data.points;
-            } catch (e) {
-                console.error('Error:', e);
-            }
-        }
-
-        async function loadAchievements() {
-            try {
-                const res = await fetch('/api/games/achievements/default');
-                const data = await res.json();
-
-                const grid = document.getElementById('achievements-grid');
-
-                // Unlocked achievements
-                const unlocked = data.unlocked.map(ach => `
-                    <div class="bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl p-4 text-center shadow-lg">
-                        <div class="text-3xl mb-2">${ach.icon}</div>
-                        <h5 class="font-semibold text-white text-sm">${ach.name}</h5>
-                    </div>
-                `);
-
-                // Locked achievements
-                const locked = data.locked.map(ach => `
-                    <div class="bg-gray-100 rounded-xl p-4 text-center opacity-50">
-                        <div class="text-3xl mb-2 grayscale">🔒</div>
-                        <h5 class="font-semibold text-gray-500 text-sm">${ach.name}</h5>
-                    </div>
-                `);
-
-                grid.innerHTML = [...unlocked, ...locked].join('');
-
-            } catch (e) {
-                console.error('Error:', e);
-            }
-        }
-
-        function startGame(gameType) {
-            if (allWords.length === 0) {
-                alert("Cargando datos del juego... Intenta en unos segundos.");
-                fetchGameData();
-                return;
-            }
-
-            const modal = document.getElementById('game-modal');
-            const content = document.getElementById('game-content');
-            const title = document.getElementById('game-modal-title');
-
-            modal.classList.remove('hidden');
-            gameActive = true;
-
-            if (gameType === 'category_sort') {
-                title.textContent = '📦 Clasificar Palabras';
-                startCategorySort(content);
-            } else if (gameType === 'complete_phrase') {
-                title.textContent = '💬 Completa la Frase';
-                startCompletePhrase(content);
-            } else if (gameType === 'word_match') {
-                title.textContent = '🎯 Emparejar Palabras';
-                startWordMatch(content);
-            } else if (gameType === 'speed_round') {
-                title.textContent = '⚡ Ronda Rápida';
-                startSpeedRound(content);
-            } else if (gameType === 'memory') {
-                title.textContent = '🧠 Memoria';
-                startMemoryGame(content);
-            } else if (gameType === 'maze') {
-                title.textContent = '🗺️ Laberinto de Voz';
-                startMazeGame(content);
-            }
-        }
-
-        function closeGame() {
-            document.getElementById('game-modal').classList.add('hidden');
-            gameActive = false;
-
-            // Safety cleanup
-            if (typeof speedTimer !== 'undefined') {
-                clearInterval(speedTimer);
-            }
-        }
-
-        function playSound(text) {
-            // Voz del servidor o, si no está disponible, la del dispositivo (static/js/voice.js)
-            playVoice(new Audio(), `/api/speak/${encodeURIComponent(text)}`, text);
-        }
-
-        async function saveGameProgress(gameType, score, details = {}) {
-            try {
-                // Using 'default' patient for now
-                const patientId = "default";
-
-                // Map game types to seeded DB IDs
-                const gameIds = {
-                    'word_match': 'game_match',
-                    'category_sort': 'game_sort',
-                    'complete_phrase': 'game_phrase',
-                    'speed_round': 'game_speed',
-                    'memory': 'game_memory'
-                };
-
-                // Use specific word_id if provided (e.g. for Word Match), otherwise use generic game ID
-                // If the specific word_id doesn't exist (e.g. phrase answer not in DB), fallback to generic.
-                let targetWordId = details.word_id;
-
-                if (!targetWordId) {
-                    targetWordId = gameIds[gameType] || "game_speed"; // safe fallback
-                }
-
-                const response = await fetch('/api/progress', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        patient_id: patientId,
-                        word_id: targetWordId,
-                        score: score,
-                        attempt_number: 1,
-                        transcription: "Game: " + gameType,
-                        feedback: details,
-                        duration_ms: details.duration || 0
-                    })
-                });
-
-                const data = await response.json();
-                console.log("Progress saved:", data);
-
-                // Update local points display immediately for feedback
-                const currentPoints = parseInt(document.getElementById('player-points').textContent) || 0;
-                document.getElementById('player-points').textContent = currentPoints + (data.points_earned || 0);
-
-                // Refresh full achievements in background
-                loadAchievements();
-
-                return data;
-            } catch (e) {
-                console.error("Error saving progress:", e);
-            }
-        }
-
-        // ================= GAME LOGIC IMPLEMENTATIONS =================
-
-        // --- 1. Word Match Game ---
-        function startWordMatch(container) {
-            // Pick a random target word
-            if (allWords.length < 4) return container.innerHTML = "<p>No hay suficientes palabras.</p>";
-
-            const target = allWords[Math.floor(Math.random() * allWords.length)];
-            // Pick 3 distractors
-            const others = allWords.filter(w => w.id !== target.id)
-                .sort(() => 0.5 - Math.random())
-                .slice(0, 3);
-
-            const options = [target, ...others].sort(() => 0.5 - Math.random());
-
-            container.innerHTML = `
-                <div class="text-center">
-                    <p class="text-gray-600 mb-6">Escucha la palabra y selecciona la correcta:</p>
-                    
-                    <button aria-label="Escuchar palabra" onclick="playSound('${target.word}')" class="bg-blue-500 text-white w-20 h-20 rounded-full text-3xl shadow-lg hover:bg-blue-600 transition mb-8 animate-bounce">
-                        <i class="fas fa-volume-up"></i>
-                    </button>
-
-                    <div class="grid grid-cols-2 gap-4 mb-6">
-                        ${options.map(opt => `
-                            <button onclick="checkWordMatch('${opt.id}', '${target.id}', this, '${target.word}')" 
-                                class="bg-gray-100 hover:bg-primary hover:text-white p-4 rounded-xl transition text-lg font-medium capitalize">
-                                ${opt.word}
-                            </button>
-                        `).join('')}
-                    </div>
-                    <div id="wm-feedback" class="h-8 font-bold"></div>
-                </div>
-            `;
-
-            // Auto play sound after short delay
-            setTimeout(() => playSound(target.word), 500);
-        }
-
-        function checkWordMatch(selectedId, targetId, btn, wordText) {
-            const feedback = document.getElementById('wm-feedback');
-            if (selectedId === targetId) {
-                btn.classList.remove('bg-gray-100');
-                btn.classList.add('bg-green-500', 'text-white');
-                feedback.textContent = "¡Correcto! 🎉"; anunciar("¡Correcto! 🎉");
-                feedback.className = "h-8 font-bold text-green-600";
-
-                // Save success (100 score)
-                saveGameProgress('word_match', 100, { word_id: targetId, word: wordText });
-
-                setTimeout(() => startWordMatch(document.getElementById('game-content')), 1500);
-            } else {
-                btn.classList.add('bg-red-500', 'text-white');
-                feedback.textContent = "Inténtalo de nuevo"; anunciar("Inténtalo de nuevo");
-                feedback.className = "h-8 font-bold text-red-500";
-            }
-        }
-
-        // --- 2. Category Sort Game ---
-        function startCategorySort(container) {
-            // Pick a random word
-            const item = allWords[Math.floor(Math.random() * allWords.length)];
-
-            // Find correct category
-            const correctCatParam = allCategories.find(c => c.id === item.category_id);
-            const correctCatName = correctCatParam ? correctCatParam.name : "Desconocido";
-
-            // Pick 2 wrong categories
-            const otherCats = allCategories.filter(c => c.id !== item.category_id)
-                .sort(() => 0.5 - Math.random())
-                .slice(0, 2);
-
-            const options = [{ id: item.category_id, name: correctCatName }, ...otherCats].sort(() => 0.5 - Math.random());
-
-            container.innerHTML = `
-                <div class="text-center">
-                    <p class="text-gray-600 mb-6">¿A qué categoría pertenece?</p>
-                    <div class="bg-blue-50 rounded-2xl p-8 mb-8 inline-block shadow-sm">
-                        <span class="text-4xl font-bold text-gray-800 capitalize">${item.word}</span>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        ${options.map(opt => `
-                            <button onclick="checkCategorySort('${opt.id}', '${item.category_id}', this, '${item.id}')" 
-                                    class="bg-gray-100 hover:bg-indigo-100 p-4 rounded-xl transition font-medium text-lg border-2 border-transparent hover:border-indigo-300">
-                                ${opt.name}
-                            </button>
-                        `).join('')}
-                    </div>
-                    <div id="feedback-area" class="mt-6 h-8 font-bold"></div>
-                    <button onclick="startCategorySort(document.getElementById('game-content'))" class="mt-4 text-sm text-gray-500 hover:text-primary underline">Saltar</button>
-                </div>
-            `;
-        }
-
-        function checkCategorySort(selectedId, correctId, btn, itemId) {
-            const feedback = document.getElementById('feedback-area');
-            if (selectedId === correctId) {
-                btn.classList.add('bg-green-100', 'border-green-500', 'text-green-800');
-                feedback.textContent = "¡Correcto! 🎉"; anunciar("¡Correcto! 🎉");
-                feedback.className = "mt-6 h-8 font-bold text-green-600";
-
-                saveGameProgress('category_sort', 100, { word_id: itemId });
-
-                setTimeout(() => startCategorySort(document.getElementById('game-content')), 1500);
-            } else {
-                btn.classList.add('bg-red-100', 'border-red-500', 'text-red-800');
-                feedback.textContent = "Inténtalo de nuevo"; anunciar("Inténtalo de nuevo");
-                feedback.className = "mt-6 h-8 font-bold text-red-500";
-            }
-        }
-
-        // --- 3. Complete Phrase Game ---
-        // Requires phrases. We can simple mock some using common structures or fetch if available.
-        // For now, consistent mock data or improved structure.
-        function startCompletePhrase(container) {
-            const phrases = [
-                { start: 'Quiero tomar', end: '___', correct: 'Agua', wrongs: ['Mesa', 'Silla'] },
-                { start: 'Me duele la', end: '___', correct: 'Cabeza', wrongs: ['Feliz', 'Verde'] },
-                { start: 'Necesito ir al', end: '___', correct: 'Baño', wrongs: ['Jugar', 'Lápiz'] },
-                { start: 'Hoy estoy muy', end: '___', correct: 'Feliz', wrongs: ['Zapato', 'Mesa'] },
-                { start: 'Buenas', end: '___', correct: 'Noches', wrongs: ['Comer', 'Azul'] }
-            ];
-
-            const phrase = phrases[Math.floor(Math.random() * phrases.length)];
-            const options = [phrase.correct, ...phrase.wrongs].sort(() => Math.random() - 0.5);
-
-            container.innerHTML = `
-                <div class="text-center">
-                    <p class="text-gray-600 mb-6">Completa la frase:</p>
-                    <div class="bg-orange-50 rounded-2xl p-6 mb-8 shadow-sm">
-                        <span class="text-2xl md:text-3xl font-medium text-gray-700">
-                            ${phrase.start} <span class="border-b-4 border-orange-400 px-2 text-orange-600 font-bold">?</span>
-                        </span>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        ${options.map(opt => `
-                            <button onclick="checkCompletePhrase('${opt}', '${phrase.correct}', this)" 
-                                    class="bg-white border-2 border-gray-100 hover:border-orange-300 shadow-sm hover:shadow-md p-4 rounded-xl transition text-lg font-bold">
-                                ${opt}
-                            </button>
-                        `).join('')}
-                    </div>
-                    <div id="feedback-phrase" class="mt-6 h-8 font-bold"></div>
-                </div>
-            `;
-        }
-
-        function checkCompletePhrase(selected, correct, btn) {
-            const feedback = document.getElementById('feedback-phrase');
-            if (selected === correct) {
-                btn.classList.remove('border-gray-100', 'hover:border-orange-300');
-                btn.classList.add('bg-green-50', 'border-green-500', 'text-green-700');
-                feedback.textContent = "¡Excelente! 🌟"; anunciar("¡Excelente! 🌟");
-                feedback.className = "mt-6 h-8 font-bold text-green-600";
-
-                // Generic logic for phrases since they aren't words in DB directly
-                saveGameProgress('complete_phrase', 100, { correct_word: correct });
-
-                setTimeout(() => startCompletePhrase(document.getElementById('game-content')), 1500);
-            } else {
-                btn.classList.add('bg-red-50', 'border-red-400', 'text-red-700');
-                feedback.textContent = "Casi... prueba otra vez"; anunciar("Casi... prueba otra vez");
-                feedback.className = "mt-6 h-8 font-bold text-red-500";
-            }
-        }
-
-        // --- 4. Speed Round ---
-        let speedTimer = null;
-        let speedScore = 0;
-
-        function startSpeedRound(container) {
-            speedScore = 0;
-            let timeLeft = 60;
-
-            // Pick current word
-            let currentWord = allWords[Math.floor(Math.random() * allWords.length)];
-
-            // Initial Render
-            container.innerHTML = `
-                <div class="text-center">
-                    <div id="speed-timer" class="text-6xl font-bold text-primary mb-2">${timeLeft}</div>
-                    <p class="text-gray-600 mb-6">segundos restantes</p>
-                    
-                    <div class="bg-gray-100 rounded-xl p-8 mb-6 transform transition hover:scale-105">
-                        <p class="text-sm text-gray-500 uppercase tracking-widest mb-2">Palabra actual</p>
-                        <p id="speed-word" class="text-4xl font-bold text-gray-800 capitalize">${currentWord.word}</p>
-                    </div>
-                    
-                    <div class="flex justify-center gap-4 mb-6">
-                        <button aria-label="Lo pronuncié correcto" onclick="speedRoundNext(true)" class="bg-green-500 text-white w-16 h-16 rounded-full text-2xl hover:bg-green-600 transition">
-                            <i class="fas fa-check"></i>
-                        </button>
-                         <button aria-label="Lo pronuncié incorrecto" onclick="speedRoundNext(false)" class="bg-red-500 text-white w-16 h-16 rounded-full text-2xl hover:bg-red-600 transition">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                    
-                    <p class="text-gray-600">Puntos: <span id="speed-score" class="font-bold text-xl text-primary">${speedScore}</span></p>
-                </div>
-            `;
-
-            // Function to update just the dynamic parts
-            function updateGameContent() {
-                const wordEl = document.getElementById('speed-word');
-                const scoreEl = document.getElementById('speed-score');
-                if (wordEl) wordEl.textContent = currentWord.word;
-                if (scoreEl) scoreEl.textContent = speedScore;
-            }
-
-            // Rendered above
-
-            // Store next function globally/locally scoped to be called by buttons
-            window.speedRoundNext = (correct) => {
-                if (correct) speedScore++;
-                currentWord = allWords[Math.floor(Math.random() * allWords.length)];
-                updateGameContent();
-            };
-
-            speedTimer = setInterval(() => {
-                if (!gameActive) { clearInterval(speedTimer); return; }
-
-                timeLeft--;
-                const timerEl = document.getElementById('speed-timer');
-                if (timerEl) timerEl.textContent = timeLeft;
-
-                if (timeLeft <= 0) {
-                    clearInterval(speedTimer);
-                    endSpeedRound(container);
-                }
-            }, 1000);
-        }
-
-        function endSpeedRound(container) {
-            // Calculate final score based on number of words (e.g. 5 points per word)
-            const finalPoints = speedScore * 5;
-
-            saveGameProgress('speed_round', speedScore * 10, { words_count: speedScore }); // save as score or something
-
-            container.innerHTML = `
-                <div class="text-center">
-                    <div class="text-6xl mb-4">🏁</div>
-                    <h2 class="text-3xl font-bold text-gray-800 mb-2">¡Tiempo Terminado!</h2>
-                    <p class="text-xl text-gray-600 mb-6">Conseguiste <span class="font-bold text-primary">${speedScore}</span> palabras</p>
-                    <p class="text-lg text-gray-500 mb-6">+${finalPoints} puntos</p>
-                    <button onclick="startGame('speed_round')" class="bg-primary text-white px-8 py-3 rounded-xl hover:bg-secondary transition">
-                        Jugar de nuevo
-                    </button>
-                </div>
-            `;
-        }
-
-        // --- 5. Voice Maze Game ---
-        let mazeGrid = [];
-        let playerPos = { x: 0, y: 0 };
-        let goalPos = { x: 4, y: 4 };
-        let mazeSize = 5;
-        let isListeningMaze = false;
-
-        let mazeRecognition = null;
-
-        function startMazeGame(container) {
-            // Hardcoded simple level
-            mazeGrid = [
-                [0, 0, 1, 0, 0],
-                [0, 1, 1, 0, 0],
-                [0, 0, 0, 1, 0],
-                [1, 1, 0, 0, 0],
-                [0, 0, 0, 1, 0]
-            ];
-            playerPos = { x: 0, y: 0 };
-            goalPos = { x: 4, y: 4 };
-            isListeningMaze = false;
-
-            renderMaze(container);
-
-            // Initialize Web Speech API
-            if ('webkitSpeechRecognition' in window) {
-                mazeRecognition = new webkitSpeechRecognition();
-                mazeRecognition.continuous = false;
-                mazeRecognition.interimResults = false;
-                mazeRecognition.lang = 'es-ES';
-
-                mazeRecognition.onresult = function (event) {
-                    const transcript = event.results[0][0].transcript;
-                    console.log("🗣️ Browser heard:", transcript);
-                    handleMazeMove(transcript);
-                    isListeningMaze = false;
-                    renderMaze(document.getElementById('game-content'), `Escuché: "${transcript}"`);
-                };
-
-                mazeRecognition.onerror = function (event) {
-                    console.warn("Browser speech error:", event.error);
-                    if (isListeningMaze) {
-                        // Initial fallback to server handled in toggle logic, or just stop
-                        isListeningMaze = false;
-                        renderMaze(document.getElementById('game-content'), "Mic error / No speech");
-                    }
-                };
-
-                mazeRecognition.onend = function () {
-                    if (isListeningMaze) {
-                        // If it ended but we expected input, maybe silence?
-                        isListeningMaze = false;
-                        renderMaze(document.getElementById('game-content'), "Silencio...");
-                    }
-                };
-            }
-        }
-
-        function renderMaze(container, feedback = "Di una dirección...") {
-            let gridHtml = '';
-            for (let y = 0; y < mazeSize; y++) {
-                for (let x = 0; x < mazeSize; x++) {
-                    let content = '';
-                    let bgClass = 'bg-gray-100';
-
-                    if (x === playerPos.x && y === playerPos.y) {
-                        content = '<div class="text-2xl animate-bounce">🐵</div>'; // Monkey/Character
-                        bgClass = 'bg-blue-100 border-2 border-blue-400';
-                    } else if (x === goalPos.x && y === goalPos.y) {
-                        content = '<div class="text-2xl">🍌</div>'; // Goal
-                        bgClass = 'bg-yellow-100 border-2 border-yellow-400';
-                    } else if (mazeGrid[y][x] === 1) {
-                        bgClass = 'bg-gray-800'; // Wall
-                        content = '🌴';
-                    }
-
-                    gridHtml += `<div class="w-12 h-12 md:w-16 md:h-16 rounded-lg ${bgClass} flex items-center justify-center shadow-sm select-none">${content}</div>`;
-                }
-            }
-
-            container.innerHTML = `
-                <div class="flex flex-col items-center">
-                   
-                    <div class="mb-4 text-center">
-                         <p class="text-gray-600 mb-2">Ayuda al mono a llegar a la banana.</p>
-                         <div class="flex gap-2 justify-center text-sm font-bold text-gray-500 uppercase">
-                            <span class="bg-gray-100 px-2 py-1 rounded">Arriba</span>
-                            <span class="bg-gray-100 px-2 py-1 rounded">Abajo</span>
-                            <span class="bg-gray-100 px-2 py-1 rounded">Izquierda</span>
-                            <span class="bg-gray-100 px-2 py-1 rounded">Derecha</span>
-                         </div>
-                    </div>
-
-                    <div class="grid grid-cols-5 gap-2 mb-6 p-4 bg-white rounded-xl shadow-inner border border-gray-100">
-                        ${gridHtml}
-                    </div>
-
-                    <div class="flex flex-col items-center gap-4">
-                        <div id="maze-feedback" class="h-8 font-bold text-lg text-teal-600">${feedback}</div>
-                        
-                        <button onclick="listenForMove(this)" id="maze-mic-btn" aria-label="${isListeningMaze ? 'Detener escucha' : 'Grabar comando de voz'}"
-                            class="${isListeningMaze ? 'bg-red-500 animate-pulse' : 'bg-teal-500'} text-white w-20 h-20 rounded-full text-3xl shadow-lg hover:opacity-90 transition flex items-center justify-center">
-                            <i class="fas ${isListeningMaze ? 'fa-stop' : 'fa-microphone'}"></i>
-                        </button>
-                        <p class="text-xs text-gray-600">Presiona y di un comando</p>
-                    </div>
-                </div>
-            `;
-        }
-
-        async function listenForMove(btn) {
-            if (isListeningMaze) {
-                isListeningMaze = false;
-                if (mazeRecognition) try { mazeRecognition.stop(); } catch (e) { }
-                renderMaze(document.getElementById('game-content'), "Cancelado");
-                return;
-            }
-
-            isListeningMaze = true;
-            renderMaze(document.getElementById('game-content'), "Escuchando...");
-
-            // 1. Try Browser Native First (Fastest)
-            if (mazeRecognition) {
-                try {
-                    mazeRecognition.start();
-                    return;
-                } catch (e) {
-                    console.warn("Browser recognition failed start, falling back to server", e);
-                }
-            }
-
-            // 2. Server Fallback
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-                const audioChunks = [];
-
-                mediaRecorder.addEventListener("dataavailable", event => {
-                    audioChunks.push(event.data);
-                });
-
-                mediaRecorder.addEventListener("stop", async () => {
-                    if (!isListeningMaze) return; // Cancelled
-
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                    processMazeCommand(audioBlob);
-                    stream.getTracks().forEach(track => track.stop());
-                    isListeningMaze = false;
-                });
-
-                mediaRecorder.start();
-                setTimeout(() => {
-                    if (mediaRecorder.state !== 'inactive') {
-                        mediaRecorder.stop();
-                    }
-                }, 2500); // 2.5s recording window
-
-            } catch (err) {
-                console.error("Error accessing microphone:", err);
-                isListeningMaze = false;
-                renderMaze(document.getElementById('game-content'), "Error de micrófono ❌");
-            }
-        }
-
-        async function processMazeCommand(audioBlob) {
-            const formData = new FormData();
-            formData.append("audio_file", audioBlob, "command.webm");
-            // IMPORTANT: Add prompt to guide the AI
-            formData.append("initial_prompt", "Comandos: Arriba, Abajo, Izquierda, Derecha.");
-
-            renderMaze(document.getElementById('game-content'), "Procesando...");
-
-            try {
-                const response = await fetch("/api/transcribe", {
-                    method: "POST",
-                    body: formData
-                });
-                const data = await response.json();
-
-                if (data.success && data.transcription) {
-                    const text = data.transcription.toLowerCase().trim();
-                    handleMazeMove(text);
-                } else {
-                    renderMaze(document.getElementById('game-content'), "No entendí...");
-                }
-            } catch (e) {
-                console.error(e);
-                renderMaze(document.getElementById('game-content'), "Error de red");
-            }
-        }
-
-        function handleMazeMove(text) {
-            let move = { x: 0, y: 0 };
-            let direction = "";
-
-            if (text.includes("arriba") || text.includes("sube")) { move.y = -1; direction = "Arriba"; }
-            else if (text.includes("abajo") || text.includes("baja")) { move.y = 1; direction = "Abajo"; }
-            else if (text.includes("izquierda")) { move.x = -1; direction = "Izquierda"; }
-            else if (text.includes("derecha")) { move.x = 1; direction = "Derecha"; }
-            else {
-                renderMaze(document.getElementById('game-content'), `¿Dijiste "${text}"? Intenta: Arriba, Abajo...`);
-                return;
-            }
-
-            const newX = playerPos.x + move.x;
-            const newY = playerPos.y + move.y;
-
-            // Check bounds
-            if (newX < 0 || newX >= mazeSize || newY < 0 || newY >= mazeSize) {
-                renderMaze(document.getElementById('game-content'), `¡Cuidado! Pared ${direction} 🧱`);
-                return;
-            }
-
-            // Check walls
-            if (mazeGrid[newY][newX] === 1) {
-                renderMaze(document.getElementById('game-content'), `¡Hay una pared ahí! 🧱`);
-                return;
-            }
-
-            // Move
-            playerPos = { x: newX, y: newY };
-
-            // Check win
-            if (playerPos.x === goalPos.x && playerPos.y === goalPos.y) {
-                renderMaze(document.getElementById('game-content'), "¡Ganaste! 🎉");
-                saveGameProgress('maze', 100, { moves: 'unknown' }); // Logic to track moves number would be good
-                setTimeout(() => {
-                    document.getElementById('game-content').innerHTML = `
-                        <div class="text-center">
-                            <div class="text-6xl mb-4">🏆</div>
-                            <h2 class="text-3xl font-bold text-gray-800 mb-2">¡Nivel Completado!</h2>
-                            <p class="text-gray-600 mb-6">Ayudaste al mono a encontrar su banana.</p>
-                            <button onclick="startGame('maze')" class="bg-teal-500 text-white px-8 py-3 rounded-xl hover:bg-teal-600 transition">
-                                Siguiente Nivel
-                            </button>
-                        </div>
-                      `;
-                }, 1000);
-            } else {
-                renderMaze(document.getElementById('game-content'), `Movimiento: ${direction} ✅`);
-            }
-        }
-
-        // --- 5. Memory Game ---
-        let memorySequence = [];
-        let playerSequence = [];
-        let memoryLevel = 1;
-
-        function startMemoryGame(container) {
-            memoryLevel = 1;
-            nextMemoryRound(container);
-        }
-
-        function nextMemoryRound(container) {
-            memorySequence = [];
-            playerSequence = [];
-
-            // Validate pool
-            if (allWords.length < 3) return container.innerHTML = "No hay suficientes palabras.";
-
-            // Generate sequence based on level
-            for (let i = 0; i < memoryLevel + 2; i++) {
-                memorySequence.push(allWords[Math.floor(Math.random() * allWords.length)]);
-            }
-
-            container.innerHTML = `
-                <div class="text-center">
-                    <h3 class="text-xl font-bold mb-2">Nivel ${memoryLevel}</h3>
-                    <p class="text-gray-600 mb-6">Memoriza la secuencia...</p>
-                    
-                    <div id="memory-display" class="flex flex-wrap justify-center gap-4 mb-8 min-h-[100px] items-center">
-                        <div class="text-4xl animate-pulse">👁️</div>
-                    </div>
-
-                    <div id="memory-options" class="hidden grid grid-cols-2 gap-4">
-                        ${memorySequence.sort(() => 0.5 - Math.random()).map((w, idx) => ` 
-                            <button onclick="checkMemory('${w.id}')" 
-                                class="bg-gray-50 border-2 border-gray-200 p-4 rounded-xl font-medium capitalize hover:border-purple-400 transition">
-                                ${w.word}
-                            </button>
-                        `).join('')} 
-                         <!-- Note: showing strict subset might be easier, but let's show randomized sequence items as options plus distractors if needed. 
-                              For simplicity, we show the items in the sequence (unique) as buttons. 
-                              Real memory game might just show 4 fixed buttons and light them up. 
-                              Let's pivot: Simon Says style. Show 3 fixed large color/word buttons. -->
-                    </div>
-                    <button id="start-mem-btn" onclick="playMemorySequence()" class="bg-purple-500 text-white px-8 py-3 rounded-xl hover:bg-purple-600 transition">
-                        Comenzar
-                    </button>
-                </div>
-            `;
-
-            // Actually, let's refine memory game to be visual flash cards
-            // Re-render for clarity
-            container.innerHTML = `
-                <div class="text-center">
-                    <h3 class="text-xl font-bold mb-2">Nivel ${memoryLevel}</h3>
-                    <p id="mem-status" class="text-gray-600 mb-6">Pulsa Comenzar para ver la secuencia</p>
-                    
-                    <div id="memory-board" class="flex justify-center gap-4 mb-8">
-                         <!-- Cards will appear here -->
-                         <div class="w-24 h-32 bg-gray-200 rounded-xl flex items-center justify-center text-gray-600">?</div>
-                    </div>
-
-                    <div id="memory-interaction" class="hidden">
-                         <p class="mb-4 text-sm text-gray-500">Repite la secuencia:</p>
-                         <div class="flex flex-wrap justify-center gap-2">
-                            ${[...new Set(memorySequence)].sort(() => 0.5 - Math.random()).map(w => `
-                                <button onclick="handleMemoryInput('${w.id}', '${w.word}')" class="bg-white border-2 border-purple-100 hover:border-purple-500 shadow-sm p-3 rounded-lg capitalize">
-                                    ${w.word}
-                                </button>
-                            `).join('')}
-                         </div>
-                    </div>
-
-                    <button id="play-mem-btn" onclick="playMemorySequence()" class="bg-purple-500 text-white px-8 py-3 rounded-xl hover:bg-purple-600 transition">
-                        Comenzar
-                    </button>
-                </div>
-            `;
-        }
-
-        async function playMemorySequence() {
-            const board = document.getElementById('memory-board');
-            const btn = document.getElementById('play-mem-btn');
-            const status = document.getElementById('mem-status');
-
-            btn.classList.add('hidden');
-            status.textContent = "Observa..."; anunciar("Observa...");
-
-            for (let item of memorySequence) {
-                // Show item
-                board.innerHTML = `
-                    <div class="w-32 h-32 bg-white border-4 border-purple-500 rounded-xl flex items-center justify-center shadow-lg transform scale-110 transition">
-                        <span class="text-xl font-bold capitalize">${item.word}</span>
-                    </div>
-                `;
-                playSound(item.word);
-                await new Promise(r => setTimeout(r, 1000));
-
-                // Hide
-                board.innerHTML = `<div class="w-32 h-32 bg-gray-100 rounded-xl flex items-center justify-center">...</div>`;
-                await new Promise(r => setTimeout(r, 500));
-            }
-
-            status.textContent = "¡Tu turno!"; anunciar("¡Tu turno!");
-            document.getElementById('memory-interaction').classList.remove('hidden');
-        }
-
-        window.handleMemoryInput = (id, word) => {
-            const expected = memorySequence[playerSequence.length];
-
-            if (id === expected.id) {
-                playerSequence.push(expected);
-                playSound(word);
-
-                if (playerSequence.length === memorySequence.length) {
-                    // Level complete
-                    document.getElementById('mem-status').textContent = "¡Bien hecho!";
-
-                    saveGameProgress('memory', memoryLevel * 20, { level: memoryLevel });
-
-                    setTimeout(() => {
-                        memoryLevel++;
-                        nextMemoryRound(document.getElementById('game-content'));
-                    }, 1000);
-                }
-            } else {
-                // Fail
-                document.getElementById('mem-status').textContent = "Incorrecto 😢";
-                document.getElementById('mem-status').className = "text-red-500 font-bold mb-6";
-                setTimeout(() => {
-                    alert(`Perdiste en el nivel ${memoryLevel}`);
-                    memoryLevel = 1;
-                    startGame('memory');
-                }, 1000);
-            }
-        };
-
-    </script>
+    <script src="{{ asset('js/games.js') }}"></script>
 <div aria-live="polite" aria-atomic="true" class="visually-hidden" id="anunciador"></div><script>window.anunciar = t => { const el = document.getElementById('anunciador'); if (el) el.textContent = t; };</script>
 </body>
 {% endblock %}

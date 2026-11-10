@@ -12,10 +12,11 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from pathlib import Path
 
-from sqlalchemy import create_engine, String, Integer, Float, Text, ForeignKey, DateTime, Index, func
+from sqlalchemy import create_engine, inspect, text, case, Boolean, String, Integer, Float, Text, ForeignKey, DateTime, Index, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker, relationship
 
 from word_images import WORD_IMAGES
+from syllables import syllabify
 
 # Base configuration
 class Base(DeclarativeBase):
@@ -39,6 +40,11 @@ class Patient(Base):
     diagnosis: Mapped[Optional[str]] = mapped_column(String)
     therapist: Mapped[Optional[str]] = mapped_column(String)
     notes: Mapped[Optional[str]] = mapped_column(Text)
+    # Cuándo dio el paciente (o su representante) su consentimiento para que su voz se reconozca
+    # con el servicio del navegador (Google en Chrome). Vacío = solo reconocimiento local.
+    cloud_speech_consent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    # Ajustes de la práctica de voz de este paciente (JSON; ver SPEECH_PROFILE_DEFAULTS)
+    speech_profile: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=_utcnow, onupdate=_utcnow)
     
@@ -75,6 +81,53 @@ class Word(Base):
     category: Mapped[Optional["Category"]] = relationship("Category", back_populates="words")
     progress: Mapped[List["Progress"]] = relationship("Progress", back_populates="word_item")
 
+# Ajustes de voz por paciente. max_recording_s y pause_s: cuándo se corta la grabación (las pausas
+# largas de la afasia o los bloqueos del Parkinson la cortaban a mitad de frase); tolerance: ajuste
+# del umbral de acierto (negativo = más tolerante).
+SPEECH_PROFILE_DEFAULTS = {"disorder": "", "severity": "", "max_recording_s": 12, "pause_s": 1.8, "tolerance": 0}
+
+GAME_PREFIX = "game_"   # los juegos se guardan en Progress con word_id "game_..."
+
+
+def is_attempt_correct(score: Optional[float], auto_correct: Optional[bool] = None,
+                       therapist_correct: Optional[bool] = None) -> bool:
+    """Una sola definición de «correcto»: manda el terapeuta, luego el umbral del nivel."""
+    if therapist_correct is not None:
+        return bool(therapist_correct)
+    if auto_correct is not None:
+        return bool(auto_correct)
+    return (score or 0) >= 70
+
+
+def _not_game():
+    """Filtro SQL: intentos de pronunciación (excluye las partidas de juegos)."""
+    return ~Progress.word_id.like(GAME_PREFIX + "%")
+
+
+def correct_sql():
+    """Expresión SQL de is_attempt_correct (para contar aciertos en la base de datos)."""
+    return case(
+        (Progress.therapist_correct.is_not(None), Progress.therapist_correct),
+        (Progress.auto_correct.is_not(None), Progress.auto_correct),
+        else_=Progress.score >= 70,
+    )
+
+
+def _legacy_phonetic_hint(word: str) -> str:
+    """Pista que generaban las versiones antiguas (incorrecta: "agu-a", "te-ngo"). Solo sirve
+    para reconocer y corregir las pistas ya guardadas."""
+    vowels = "aeiouáéíóú"
+    hint = ""
+    syllable = ""
+    for char in word:
+        syllable += char
+        if char.lower() in vowels and len(syllable) > 1:
+            hint += syllable + "-"
+            syllable = ""
+    hint += syllable
+    return hint.rstrip("-")
+
+
 class Progress(Base):
     __tablename__ = 'progress'
     # Todas las consultas de progreso filtran por paciente (y por palabra o por fecha)
@@ -91,8 +144,12 @@ class Progress(Base):
     transcription: Mapped[Optional[str]] = mapped_column(Text)
     feedback: Mapped[Optional[str]] = mapped_column(Text)  # JSON string
     duration_ms: Mapped[Optional[int]] = mapped_column(Integer)
+    # Acierto según el umbral del nivel (el del analizador) y, si la hay, la valoración del
+    # terapeuta, que manda. Los intentos antiguos no tienen ninguno: se usa score >= 70.
+    auto_correct: Mapped[Optional[bool]] = mapped_column(Boolean)
+    therapist_correct: Mapped[Optional[bool]] = mapped_column(Boolean)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=_utcnow)
-    
+
     patient: Mapped["Patient"] = relationship("Patient", back_populates="progress")
     word_item: Mapped["Word"] = relationship("Word", back_populates="progress")
 
@@ -350,6 +407,7 @@ class Database:
     def initialize(self):
         """Initialize database tables and default data"""
         Base.metadata.create_all(bind=self.engine)
+        self._add_missing_columns()
         # create_all solo crea índices en tablas nuevas: crearlos también en bases ya existentes
         for table in Base.metadata.sorted_tables:
             for index in table.indexes:
@@ -357,6 +415,23 @@ class Database:
         self._insert_initial_data()
         self._seed_aac_data()
         self._apply_word_images()
+        self._refresh_phonetic_hints()
+
+    # Columnas añadidas después de crear la tabla: create_all no las añade a bases ya existentes
+    _NEW_COLUMNS = {
+        "patients": {"cloud_speech_consent_at": "TIMESTAMP", "speech_profile": "TEXT"},
+        "progress": {"auto_correct": "BOOLEAN", "therapist_correct": "BOOLEAN"},
+    }
+
+    def _add_missing_columns(self):
+        inspector = inspect(self.engine)
+        for table, columns in self._NEW_COLUMNS.items():
+            existing = {c["name"] for c in inspector.get_columns(table)}
+            for name, sql_type in columns.items():
+                if name not in existing:
+                    with self.engine.begin() as conn:
+                        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {sql_type}"))
+                    print(f"🛠️ Columna {table}.{name} añadida")
 
     def _apply_word_images(self):
         """Imagen de ARASAAC de cada palabra de práctica (WORD_IMAGES). También actualiza
@@ -375,6 +450,24 @@ class Database:
         finally:
             session.close()
         
+    def _refresh_phonetic_hints(self):
+        """Corrige las pistas silábicas creadas con el algoritmo antiguo ("agu-a" -> "a-gua").
+        Solo toca las que coinciden con lo que generaba aquel: las escritas a mano se respetan."""
+        session = self.SessionLocal()
+        try:
+            changed = 0
+            for word in session.query(Word).all():
+                if word.phonetic_hint == _legacy_phonetic_hint(word.word or ""):
+                    new_hint = syllabify(word.word or "")
+                    if new_hint != word.phonetic_hint:
+                        word.phonetic_hint = new_hint
+                        changed += 1
+            session.commit()
+            if changed:
+                print(f"🔤 Separación silábica corregida en {changed} palabras")
+        finally:
+            session.close()
+
     def _seed_aac_data(self):
         """Populate initial AAC data"""
         session = self.SessionLocal()
@@ -631,17 +724,8 @@ class Database:
             session.close()
 
     def _generate_phonetic_hint(self, word: str) -> str:
-        """Simple syllable separation helper"""
-        vowels = "aeiouáéíóú"
-        hint = ""
-        syllable = ""
-        for char in word:
-            syllable += char
-            if char.lower() in vowels and len(syllable) > 1:
-                hint += syllable + "-"
-                syllable = ""
-        hint += syllable
-        return hint.rstrip("-")
+        """Separación silábica que se muestra bajo la palabra ("por fa-vor")."""
+        return syllabify(word)
 
     # ==================== QUERY METHODS ====================
 
@@ -680,7 +764,7 @@ class Database:
                 word=word_data.get("word"),
                 category_id=word_data.get("category_id", "custom"),
                 level=word_data.get("level", 1),
-                phonetic_hint=word_data.get("phonetic_hint", ""),
+                phonetic_hint=word_data.get("phonetic_hint") or syllabify(word_data.get("word") or ""),
                 tips=word_data.get("tips", ""),
             )
             new_word.image_url = WORD_IMAGES.get(word_image_key(new_word.category_id, new_word.word or ""))
@@ -702,7 +786,8 @@ class Database:
                 score=data.get("score"),
                 transcription=data.get("transcription"),
                 feedback=json.dumps(data.get("feedback", {})),
-                duration_ms=data.get("duration_ms")
+                duration_ms=data.get("duration_ms"),
+                auto_correct=data.get("is_correct"),
             )
             session.add(new_progress)
             session.commit()
@@ -726,7 +811,7 @@ class Database:
                 func.count(func.distinct(Progress.word_id)),
                 func.avg(Progress.score),
                 func.max(Progress.score),
-            ).filter(Progress.patient_id == patient_id).one()
+            ).filter(Progress.patient_id == patient_id, _not_game()).one()
 
             # Por categoría (solo intentos sobre palabras existentes, como antes)
             practiced = {
@@ -736,7 +821,7 @@ class Database:
                     func.count(func.distinct(Progress.word_id)),
                     func.avg(Progress.score),
                 ).join(Word, Progress.word_id == Word.id)
-                .filter(Progress.patient_id == patient_id)
+                .filter(Progress.patient_id == patient_id, _not_game())
                 .group_by(Word.category_id)
             }
             totals = dict(session.query(Word.category_id, func.count(Word.id)).group_by(Word.category_id).all())
@@ -755,7 +840,7 @@ class Database:
 
             # Últimos intentos, con la palabra (una sola consulta)
             recent_list = []
-            for r, word_text in session.query(Progress, Word.word)                    .outerjoin(Word, Progress.word_id == Word.id)                    .filter(Progress.patient_id == patient_id)                    .order_by(Progress.created_at.desc()).limit(20).all():
+            for r, word_text in session.query(Progress, Word.word)                    .outerjoin(Word, Progress.word_id == Word.id)                    .filter(Progress.patient_id == patient_id, _not_game())                    .order_by(Progress.created_at.desc()).limit(20).all():
                 r_dict = self._to_dict(r)
                 r_dict['word'] = word_text if word_text is not None else "Unknown"
                 recent_list.append(r_dict)
@@ -783,7 +868,8 @@ class Database:
              # Keeping it simple: returning raw list for processing or simple fetch
              
              # Fetch all progress for patient
-             all_p = session.query(Progress).filter(Progress.patient_id == patient_id).all()
+             # Solo pronunciación: las partidas de juegos no son intentos de habla
+             all_p = session.query(Progress).filter(Progress.patient_id == patient_id, _not_game()).all()
              
              # Process in python to be DB agnostic (easier than writing conditional SQL for date functions)
              daily_map = {}
@@ -799,7 +885,7 @@ class Database:
                  d = daily_map[date_str]
                  d["attempts"] += 1
                  d["total_score"] += score
-                 if score >= 70:
+                 if is_attempt_correct(p.score, p.auto_correct, p.therapist_correct):
                      d["correct"] += 1
                      
                  # Per word stats
@@ -831,11 +917,29 @@ class Database:
                      })
              top_words_list.sort(key=lambda x: x["attempts"], reverse=True)
              
-             return {
-                 "daily_progress": daily_progress[-30:], # Last 30 entries
-                 "top_words": top_words_list[:10],
-                 "difficult_words": [] # TODO: implement logic if needed
-             }
+             daily = daily_progress[-30:]  # Last 30 entries
+             top = top_words_list[:10]
+        finally:
+            session.close()
+        # Palabras que más le cuestan (media baja con al menos 2 intentos y por debajo de 70)
+        difficult = [
+            {"word": w["word"], "attempts": w["difficulty_stats"]["attempts"],
+             "avg_score": w["difficulty_stats"]["avg_score"]}
+            for w in self.get_difficult_words(patient_id, limit=10)
+            if w["difficulty_stats"]["avg_score"] < 70
+        ]
+        return {"daily_progress": daily, "top_words": top, "difficult_words": difficult}
+
+    def set_therapist_label(self, patient_id: str, progress_id: str, correct: Optional[bool]) -> bool:
+        """Valoración del terapeuta de un intento (None la quita). False si no es de ese paciente."""
+        session = self.SessionLocal()
+        try:
+            p = session.get(Progress, progress_id)
+            if not p or p.patient_id != patient_id or p.word_id.startswith(GAME_PREFIX):
+                return False
+            p.therapist_correct = correct
+            session.commit()
+            return True
         finally:
             session.close()
 
@@ -862,6 +966,61 @@ class Database:
         try:
             p = session.get(Patient, patient_id)
             return self._to_dict(p) if p else None
+        finally:
+            session.close()
+
+    def get_cloud_speech_consent(self, patient_id: str) -> Optional[datetime]:
+        session = self.SessionLocal()
+        try:
+            p = session.get(Patient, patient_id)
+            return p.cloud_speech_consent_at if p else None
+        finally:
+            session.close()
+
+    def get_speech_profile(self, patient_id: str) -> Dict:
+        session = self.SessionLocal()
+        try:
+            p = session.get(Patient, patient_id)
+            stored = {}
+            if p and p.speech_profile:
+                try:
+                    stored = json.loads(p.speech_profile)
+                except ValueError:
+                    stored = {}
+            return {k: stored.get(k, v) for k, v in SPEECH_PROFILE_DEFAULTS.items()}
+        finally:
+            session.close()
+
+    def set_speech_profile(self, patient_id: str, updates: Dict) -> Optional[Dict]:
+        """Guarda los ajustes indicados (los demás se conservan). None si no existe el paciente."""
+        session = self.SessionLocal()
+        try:
+            p = session.get(Patient, patient_id)
+            if not p:
+                return None
+            current = {}
+            if p.speech_profile:
+                try:
+                    current = json.loads(p.speech_profile)
+                except ValueError:
+                    current = {}
+            current.update({k: v for k, v in updates.items() if k in SPEECH_PROFILE_DEFAULTS})
+            p.speech_profile = json.dumps(current)
+            session.commit()
+        finally:
+            session.close()
+        return self.get_speech_profile(patient_id)
+
+    def set_cloud_speech_consent(self, patient_id: str, consent: bool) -> Optional[datetime]:
+        """Registra (con la fecha) o retira el consentimiento para el reconocimiento en la nube."""
+        session = self.SessionLocal()
+        try:
+            p = session.get(Patient, patient_id)
+            if not p:
+                return None
+            p.cloud_speech_consent_at = _utcnow() if consent else None
+            session.commit()
+            return p.cloud_speech_consent_at
         finally:
             session.close()
 
@@ -1149,7 +1308,7 @@ class Database:
             ).join(
                 Progress, Progress.word_id == Word.id
             ).filter(
-                Progress.patient_id == patient_id
+                Progress.patient_id == patient_id, _not_game()
             ).group_by(
                 Word.id
             ).having(

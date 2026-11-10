@@ -31,8 +31,15 @@
             transition: all 0.3s ease;
         }
 
-        .word-card:hover {
-            transform: translateY(-4px);
+        @media (hover: hover) {
+            .word-card:hover {
+                transform: translateY(-2px);
+            }
+        }
+
+        /* Anillo de tiempo de grabación alrededor del botón */
+        #record-ring circle.progress {
+            transition: stroke-dashoffset 0.1s linear;
         }
 
         .feedback-excellent {
@@ -68,82 +75,178 @@
 
     <main class="container mx-auto px-4 py-6 pt-24 md:pt-28">
         <!-- Category & Level Selector -->
-        <div class="flex flex-wrap gap-4 mb-6">
-            <select id="category-select"
-                class="bg-white border-2 border-gray-200 rounded-xl px-4 py-3 font-medium focus:border-primary focus:outline-none">
-                <option value="">Todas las categorías</option>
+        <!-- Al cambiar la categoría o el nivel se cargan las palabras (ya no hace falta «Cargar») -->
+        <div class="grid grid-cols-2 lg:flex lg:flex-wrap gap-3 mb-6">
+            <label for="category-select" class="visually-hidden">Categoría</label>
+            <select id="category-select" onchange="loadWords()"
+                class="col-span-2 lg:col-span-1 w-full lg:w-auto min-h-[56px] text-base sm:text-lg bg-white border-2 border-gray-200 rounded-xl px-3 sm:px-4 py-3 font-medium focus:border-primary focus:outline-none">
             </select>
 
-            <select id="level-select"
-                class="bg-white border-2 border-gray-200 rounded-xl px-4 py-3 font-medium focus:border-primary focus:outline-none">
-                <option value="1">Nivel 1 - Palabras</option>
-                <option value="2">Nivel 2 - Palabras +</option>
-                <option value="3">Nivel 3 - Frases cortas</option>
-                <option value="4">Nivel 4 - Frases</option>
-                <option value="5">Nivel 5 - Frases largas</option>
+            <label for="level-select" class="visually-hidden">Nivel</label>
+            <select id="level-select" onchange="loadWords()"
+                class="w-full lg:w-auto min-h-[56px] text-base sm:text-lg bg-white border-2 border-gray-200 rounded-xl px-3 sm:px-4 py-3 font-medium focus:border-primary focus:outline-none">
+                <option value="1">Nivel 1: palabras</option>
+                <option value="2">Nivel 2: palabras +</option>
+                <option value="3">Nivel 3: frases cortas</option>
+                <option value="4">Nivel 4: frases</option>
+                <option value="5">Nivel 5: frases largas</option>
             </select>
 
-            <select id="speed-select" class="bg-white border-2 border-gray-200 rounded-xl px-4 py-3 font-medium focus:border-primary focus:outline-none">
-                <option value="lenta" selected>🐢 Voz lenta (recomendado)</option>
+            <label for="speed-select" class="visually-hidden">Velocidad de la voz</label>
+            <select id="speed-select" class="w-full lg:w-auto min-h-[56px] text-base sm:text-lg bg-white border-2 border-gray-200 rounded-xl px-3 sm:px-4 py-3 font-medium focus:border-primary focus:outline-none">
+                <option value="lenta" selected>🐢 Voz lenta</option>
                 <option value="normal">Voz normal</option>
             </select>
-            <div id="sugerencia-nivel" class="hidden col-span-full bg-indigo-50 border border-indigo-200 text-indigo-800 rounded-xl px-4 py-2 font-medium" role="status"></div>
-
-            <button aria-label="Cargar palabras para practicar" onclick="loadWords()"
-                class="bg-primary text-white px-6 py-3 rounded-xl font-medium hover:bg-primary/90 transition">
-                <i class="fas fa-sync-alt mr-2"></i>Cargar
-            </button>
+            <div id="sugerencia-nivel" class="hidden col-span-2 lg:w-full bg-indigo-50 border border-indigo-200 text-indigo-800 rounded-xl px-4 py-2 font-medium" role="status"></div>
         </div>
 
-        <!-- Main Practice Area -->
+        <!-- Main Practice Area: en móvil y tablet vertical el panel de práctica va primero, para
+             que el micrófono se vea sin desplazarse; la lista de palabras queda debajo -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Word List -->
-            <div class="lg:col-span-1 bg-white rounded-2xl shadow-lg p-6 max-h-[600px] overflow-y-auto">
+            <div class="order-2 lg:order-none lg:col-span-1 bg-white rounded-2xl shadow-lg p-4 md:p-6 max-h-[360px] lg:max-h-[600px] overflow-y-auto">
                 <h3 class="text-lg font-bold text-gray-800 mb-4">
                     <i class="fas fa-list mr-2 text-primary"></i>Palabras
                 </h3>
                 <div id="word-list" class="space-y-2">
-                    <!-- Se llena dinámicamente -->
+                    <p class="text-gray-600 text-center py-4">Elige una categoría para ver las palabras.</p>
                 </div>
             </div>
 
             <!-- Practice Panel -->
-            <div class="lg:col-span-2">
+            <div class="order-1 lg:order-none lg:col-span-2">
                 <!-- Current Word Display -->
-                <div class="bg-white rounded-2xl shadow-lg p-8 mb-6 text-center">
-                    <p class="text-gray-500 mb-2">Palabra a practicar:</p>
+                <div class="bg-white rounded-2xl shadow-lg p-5 md:p-8 mb-6 text-center">
+                    <p class="text-gray-600 mb-2">Palabra a practicar:</p>
                     <!-- Pictograma de ARASAAC de la palabra (si tiene) -->
-                    <img id="word-image" alt="" width="160" height="160"
-                        class="hidden mx-auto w-32 h-32 md:w-40 md:h-40 object-contain mb-4 rounded-xl">
-                    <h2 id="current-word" class="text-4xl md:text-5xl font-bold text-gray-800 mb-4">
+                    <img id="word-image" alt="" width="160" height="160" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="
+                        class="hidden mx-auto w-24 h-24 md:w-40 md:h-40 object-contain mb-3 md:mb-4 rounded-xl">
+                    <h2 id="current-word" class="text-4xl md:text-5xl font-bold text-gray-800 mb-3 md:mb-4">
                         Selecciona una palabra
                     </h2>
-                    <p id="phonetic-hint" class="text-xl text-gray-600 mb-6"></p>
+                    <p id="phonetic-hint" class="text-xl text-gray-600 mb-4 md:mb-6"></p>
 
                     <!-- Listen Button -->
                     <button aria-label="Escuchar la palabra" onclick="playTargetWord()" id="listen-btn"
-                        class="bg-blue-100 text-blue-600 px-6 py-3 rounded-xl font-medium hover:bg-blue-200 transition mb-6"
+                        class="bg-blue-100 text-blue-800 px-6 py-3 min-h-[48px] rounded-xl font-semibold hover:bg-blue-200 transition mb-4 md:mb-6 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
                         disabled>
                         <i class="fas fa-volume-up mr-2"></i>Escuchar pronunciación
                     </button>
 
-                    <!-- Record Button -->
+                    <!-- Record Button: el estado se ve por el color, el icono Y el texto (no solo por
+                         una animación, que desaparece con «reducir movimiento») -->
                     <div class="flex justify-center">
-                        <button onclick="toggleRecording()" id="record-btn" aria-label="Grabar pronunciación"
-                            class="w-32 h-32 rounded-full bg-gradient-to-br from-accent to-red-600 text-white shadow-xl hover:shadow-2xl transition-all flex items-center justify-center"
-                            disabled>
-                            <i class="fas fa-microphone text-4xl" id="record-icon"></i>
-                        </button>
+                        <div class="relative w-44 h-44 flex items-center justify-center">
+                            <svg id="record-ring" class="absolute inset-0 w-full h-full -rotate-90 hidden" viewBox="0 0 100 100" aria-hidden="true">
+                                <circle cx="50" cy="50" r="47" fill="none" stroke="#fecaca" stroke-width="5" />
+                                <circle class="progress" id="record-ring-progress" cx="50" cy="50" r="47" fill="none" stroke="#dc2626" stroke-width="5"
+                                    stroke-linecap="round" stroke-dasharray="295.3" stroke-dashoffset="295.3" />
+                            </svg>
+                            <button onclick="toggleRecording()" id="record-btn" aria-label="Grabar pronunciación" aria-pressed="false"
+                                class="w-36 h-36 rounded-full bg-gray-300 text-gray-600 shadow-xl transition-colors flex flex-col items-center justify-center gap-2 cursor-not-allowed"
+                                disabled>
+                                <i class="fas fa-microphone text-4xl" id="record-icon" aria-hidden="true"></i>
+                                <span id="record-label" class="text-base font-bold leading-tight">Grabar</span>
+                            </button>
+                        </div>
                     </div>
-                    <div id="voice-meter" class="hidden mt-4 mx-auto w-48 h-2 rounded-full bg-gray-200 overflow-hidden" aria-hidden="true">
+                    <div id="voice-meter" class="hidden mt-3 mx-auto w-48 h-2 rounded-full bg-gray-200 overflow-hidden" aria-hidden="true">
                         <div id="voice-meter-fill" class="h-full w-0 bg-green-500 rounded-full transition-all duration-75"></div>
                     </div>
-                    <p id="record-status" class="mt-4 text-gray-500" aria-live="polite">Selecciona una palabra para comenzar</p>
+                    <p id="record-status" class="mt-3 text-lg font-semibold text-gray-800" aria-live="polite">Selecciona una palabra para comenzar</p>
+
+                    <!-- Reconocimiento mejorado (nube): opcional, por paciente y con consentimiento -->
+                    <div id="cloud-speech-box" class="mt-6 pt-4 border-t border-gray-100 text-sm text-gray-600 flex flex-wrap items-center justify-center gap-3">
+                        <span id="cloud-speech-label" class="hidden"></span>
+                        <button type="button" id="cloud-speech-btn" onclick="toggleCloudSpeech()"
+                            class="hidden px-4 py-2 min-h-[48px] rounded-lg border border-gray-300 font-medium hover:border-primary hover:text-primary transition"></button>
+                        <!-- Ajustes de voz del paciente (los guarda el servidor, por paciente) -->
+                        <button type="button" id="profile-btn" onclick="openProfile()"
+                            class="px-4 py-2 min-h-[48px] rounded-lg border border-gray-300 font-medium hover:border-primary hover:text-primary transition">
+                            <i class="fas fa-user mr-2" aria-hidden="true"></i>Ajustes del paciente
+                        </button>
+                        <p id="profile-summary" class="w-full text-center text-gray-600"></p>
+                    </div>
                 </div>
+
+                <dialog id="cloud-consent-dialog" class="rounded-2xl p-0 max-w-lg w-[calc(100%-2rem)] shadow-2xl backdrop:bg-black/40">
+                    <form method="dialog" class="p-6 text-left">
+                        <h3 class="text-xl font-bold text-gray-800 mb-3">Reconocimiento de voz mejorado</h3>
+                        <p class="text-gray-700 mb-3">Además del reconocimiento de este equipo, la voz del paciente se enviará al
+                            servicio de reconocimiento del navegador (<strong>Google</strong> en Chrome, Microsoft en Edge), que
+                            entiende mejor las palabras. La app se queda con el mejor de los dos resultados.</p>
+                        <p class="text-gray-700 mb-4">Actívalo solo si el paciente (o su representante) <strong>ha dado su
+                            consentimiento</strong>. Se guarda la fecha del consentimiento y se puede desactivar cuando se quiera.</p>
+                        <label class="flex items-start gap-3 mb-6 text-gray-800 font-medium">
+                            <input type="checkbox" id="cloud-consent-check" class="mt-1 w-5 h-5">
+                            El paciente ha dado su consentimiento
+                        </label>
+                        <div class="flex justify-end gap-3">
+                            <button value="cancel" class="px-5 py-3 rounded-xl bg-gray-100 text-gray-800 font-semibold hover:bg-gray-200">Cancelar</button>
+                            <button value="ok" id="cloud-consent-ok" disabled class="px-5 py-3 rounded-xl bg-primary text-white font-semibold disabled:opacity-40">Activar</button>
+                        </div>
+                    </form>
+                </dialog>
+
+                <dialog id="profile-dialog" class="rounded-2xl p-0 max-w-lg w-[calc(100%-2rem)] shadow-2xl backdrop:bg-black/40">
+                    <form method="dialog" class="p-6 text-left">
+                        <h3 class="text-xl font-bold text-gray-800 mb-1">Ajustes de voz del paciente</h3>
+                        <p class="text-gray-600 mb-5">Se guardan para este paciente y se aplican en cualquier equipo.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                            <label class="flex flex-col gap-1 font-semibold text-gray-800">Trastorno
+                                <select id="pf-disorder" class="min-h-[48px] border-2 border-gray-200 rounded-xl px-3 font-normal">
+                                    <option value="">Sin indicar</option>
+                                    <option value="afasia">Afasia</option>
+                                    <option value="disartria">Disartria</option>
+                                    <option value="apraxia">Apraxia del habla</option>
+                                    <option value="mixto">Mixto</option>
+                                    <option value="otro">Otro</option>
+                                </select>
+                            </label>
+                            <label class="flex flex-col gap-1 font-semibold text-gray-800">Gravedad
+                                <select id="pf-severity" class="min-h-[48px] border-2 border-gray-200 rounded-xl px-3 font-normal">
+                                    <option value="">Sin indicar</option>
+                                    <option value="leve">Leve</option>
+                                    <option value="moderada">Moderada</option>
+                                    <option value="grave">Grave</option>
+                                </select>
+                            </label>
+                            <label class="flex flex-col gap-1 font-semibold text-gray-800">Tiempo máximo de grabación
+                                <select id="pf-max" class="min-h-[48px] border-2 border-gray-200 rounded-xl px-3 font-normal">
+                                    <option value="8">8 segundos</option>
+                                    <option value="12">12 segundos</option>
+                                    <option value="20">20 segundos</option>
+                                    <option value="30">30 segundos</option>
+                                </select>
+                            </label>
+                            <label class="flex flex-col gap-1 font-semibold text-gray-800">Pausa para dar por terminado
+                                <select id="pf-pause" class="min-h-[48px] border-2 border-gray-200 rounded-xl px-3 font-normal">
+                                    <option value="1.8">1,8 s (normal)</option>
+                                    <option value="2.5">2,5 s</option>
+                                    <option value="3.5">3,5 s</option>
+                                    <option value="5">5 s (pausas muy largas)</option>
+                                </select>
+                            </label>
+                            <label class="sm:col-span-2 flex flex-col gap-1 font-semibold text-gray-800">Exigencia al puntuar
+                                <select id="pf-tolerance" class="min-h-[48px] border-2 border-gray-200 rounded-xl px-3 font-normal">
+                                    <option value="-10">Mucho más tolerante</option>
+                                    <option value="-5">Más tolerante</option>
+                                    <option value="0">Normal</option>
+                                    <option value="5">Más exigente</option>
+                                </select>
+                            </label>
+                        </div>
+                        <p id="pf-hint" class="text-sm text-indigo-800 bg-indigo-50 rounded-lg px-3 py-2 mb-5 hidden"></p>
+                        <div class="flex justify-end gap-3">
+                            <button value="cancel" class="px-5 py-3 min-h-[48px] rounded-xl bg-gray-100 text-gray-800 font-semibold hover:bg-gray-200">Cancelar</button>
+                            <button value="ok" class="px-5 py-3 min-h-[48px] rounded-xl bg-primary text-white font-semibold">Guardar</button>
+                        </div>
+                    </form>
+                </dialog>
 
                 <!-- Feedback Panel -->
                 <div id="feedback-panel" class="hidden bg-white rounded-2xl shadow-lg p-6">
-                    <div class="flex items-start gap-6">
+                    <div class="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 text-center sm:text-left">
                         <!-- Score Circle -->
                         <div class="flex-shrink-0">
                             <svg class="w-24 h-24" viewBox="0 0 100 100">
@@ -157,13 +260,13 @@
                         </div>
 
                         <!-- Feedback Content -->
-                        <div class="flex-1">
+                        <div class="flex-1 w-full">
                             <h4 id="feedback-message" class="text-xl font-bold text-gray-800 mb-2"></h4>
                             <p id="feedback-transcription" class="text-gray-600 mb-3"></p>
                             <p id="feedback-encouragement" class="text-gray-500 mb-4"></p>
 
                             <!-- Tips -->
-                            <div id="feedback-tips" class="bg-gray-50 rounded-xl p-4">
+                            <div id="feedback-tips" class="bg-gray-50 rounded-xl p-4 text-left">
                                 <h5 class="font-semibold text-gray-700 mb-2">
                                     <i class="fas fa-lightbulb text-yellow-500 mr-2"></i>Consejos:
                                 </h5>
@@ -172,14 +275,32 @@
                         </div>
                     </div>
 
+                    <!-- Valoración del terapeuta: el reconocedor no es el juez final con habla
+                         patológica. Si el terapeuta valora el intento, eso es lo que cuenta en el
+                         progreso y los logros. Pulsar de nuevo la misma opción la quita. -->
+                    <div id="therapist-box" class="mt-6 pt-4 border-t border-gray-100">
+                        <p class="text-sm font-semibold text-gray-700 mb-2 text-center">Valoración del terapeuta <span class="font-normal text-gray-600">(opcional)</span></p>
+                        <div class="flex justify-center gap-3">
+                            <button type="button" id="label-ok" onclick="labelAttempt(true)" aria-pressed="false"
+                                class="min-h-[48px] px-5 rounded-xl border-2 border-green-600 text-green-800 font-semibold hover:bg-green-50 aria-pressed:bg-green-600 aria-pressed:text-white transition">
+                                <i class="fas fa-check mr-2" aria-hidden="true"></i>Bien dicho
+                            </button>
+                            <button type="button" id="label-no" onclick="labelAttempt(false)" aria-pressed="false"
+                                class="min-h-[48px] px-5 rounded-xl border-2 border-red-600 text-red-800 font-semibold hover:bg-red-50 aria-pressed:bg-red-600 aria-pressed:text-white transition">
+                                <i class="fas fa-times mr-2" aria-hidden="true"></i>No era correcto
+                            </button>
+                        </div>
+                        <p id="label-status" class="text-sm text-gray-600 text-center mt-2" aria-live="polite"></p>
+                    </div>
+
                     <!-- Action Buttons -->
                     <div class="flex justify-center gap-4 mt-6">
                         <button aria-label="Repetir la palabra" onclick="repeatWord()"
-                            class="bg-orange-100 text-orange-600 px-6 py-3 rounded-xl font-medium hover:bg-orange-200 transition">
+                            class="bg-orange-100 text-orange-800 px-6 py-3 min-h-[48px] rounded-xl font-semibold hover:bg-orange-200 transition">
                             <i class="fas fa-redo mr-2"></i>Repetir
                         </button>
                         <button onclick="nextWord()"
-                            class="bg-primary text-white px-6 py-3 rounded-xl font-medium hover:bg-primary/90 transition">
+                            class="bg-primary text-white px-6 py-3 min-h-[48px] rounded-xl font-semibold hover:bg-primary/90 transition">
                             Siguiente<i class="fas fa-arrow-right ml-2"></i>
                         </button>
                     </div>
@@ -217,7 +338,7 @@
         let audioChunks = [];
         let sessionStats = { attempts: 0, correct: 0, totalScore: 0 };
         let recordingTimeout = null;
-        const MAX_RECORDING_TIME = 8000; // 8 segundos máximo
+        let MAX_RECORDING_TIME = 12000; // tope de la grabación; se ajusta por paciente (Ajustes del paciente)
         let currentLevel = 1;
         let intentosRecientes = [];
         const PATIENT_ID = 'default';
@@ -228,9 +349,16 @@
         // Detección de voz/silencio LOCAL (Web Audio). El audio solo se envía a nuestro
         // servidor para el análisis; ya no se usa el reconocimiento de Chrome (enviaba la voz a Google).
         const VAD = {
-            silenceMs: 1200,          // pausa generosa: hay pacientes que hablan despacio o con pausas
+            silenceMs: 1800,          // pausa generosa: hay pacientes que dicen la palabra por sílabas
             noSpeechTimeoutMs: 6000,  // si no se detecta voz, se avisa en vez de enviar silencio
             minSpeechMs: 150,         // voz mínima para considerar que dijo algo
+            minThreshold: 0.008,      // volumen (RMS) mínimo para empezar a contar voz: voces débiles
+            maxThreshold: 0.04,       // tope del umbral aunque haya mucho ruido de fondo
+        };
+        // Micrófono sin la supresión de ruido ni la cancelación de eco del navegador: deforman
+        // las voces roncas o débiles y empeoran el reconocimiento. El volumen automático sí ayuda.
+        const MIC_CONSTRAINTS = {
+            audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: true },
         };
         let audioContext = null;      // uno solo, reutilizado (crearlo tarda ~1,5 s en algunos equipos)
         let vadSource = null;
@@ -239,33 +367,220 @@
         let heardSpeech = false;
 
         // Initialize
-        document.addEventListener('DOMContentLoaded', async () => {
-            await loadCategories();
+        // ---- Reconocimiento mejorado del navegador (solo con consentimiento del paciente) ----
+        // Si está activo, el navegador reconoce la voz EN PARALELO a la grabación y el servidor
+        // puntúa también lo que oyó; gana el mejor resultado. Si falla (sin red), queda el local.
+        const BrowserRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+        let cloudSpeech = false;
+        let browserRec = null;        // reconocimiento del intento en curso
+        let browserHeard = [];        // lo que oyó en este intento (varias alternativas)
+        let browserDone = null;       // promesa: termina cuando el navegador entrega su resultado
 
-            // Check URL params
+        async function loadSpeechSettings() {
+            try {
+                const res = await fetch('/api/speech-settings');
+                if (res.ok) {
+                    const data = await res.json();
+                    cloudSpeech = data.cloud_speech;
+                    applyProfile(data.profile);
+                }
+            } catch (e) { /* sin red: ajustes por defecto y reconocimiento local */ }
+            renderCloudSpeech();
+        }
+
+        // ---- Ajustes de voz del paciente (trastorno, tiempos de grabación, exigencia) ----
+        let profile = { disorder: '', severity: '', max_recording_s: 12, pause_s: 1.8, tolerance: 0 };
+        const DISORDER_NAMES = { afasia: 'Afasia', disartria: 'Disartria', apraxia: 'Apraxia del habla', mixto: 'Mixto', otro: 'Otro' };
+        const TOLERANCE_NAMES = { '-10': 'mucho más tolerante', '-5': 'más tolerante', '0': 'normal', '5': 'más exigente' };
+        // Valores que se sugieren al elegir el trastorno (el terapeuta puede cambiarlos)
+        const PRESETS = {
+            afasia:    { max_recording_s: 20, pause_s: 3.5, tolerance: 0 },
+            disartria: { max_recording_s: 20, pause_s: 2.5, tolerance: -5 },
+            apraxia:   { max_recording_s: 20, pause_s: 3.5, tolerance: -5 },
+            mixto:     { max_recording_s: 20, pause_s: 3.5, tolerance: -5 },
+        };
+
+        function applyProfile(p) {
+            if (p) profile = { ...profile, ...p };
+            MAX_RECORDING_TIME = profile.max_recording_s * 1000;
+            VAD.silenceMs = Math.round(profile.pause_s * 1000);
+            // Si cuesta arrancar a hablar (apraxia, casos graves), se espera más antes de avisar
+            const slowStart = profile.disorder === 'apraxia' || profile.severity === 'grave';
+            VAD.noSpeechTimeoutMs = Math.min(MAX_RECORDING_TIME - 1000, slowStart ? 10000 : 6000);
+            const parts = [];
+            if (profile.disorder) parts.push(DISORDER_NAMES[profile.disorder] + (profile.severity ? ' ' + profile.severity : ''));
+            parts.push('grabación hasta ' + profile.max_recording_s + ' s', 'pausa ' + String(profile.pause_s).replace('.', ',') + ' s');
+            if (profile.tolerance) parts.push('puntuación ' + (TOLERANCE_NAMES[String(profile.tolerance)] || profile.tolerance));
+            document.getElementById('profile-summary').textContent = parts.join(' · ');
+        }
+
+        /** Valor de un select; si el guardado no está entre las opciones, se añade */
+        function setSelect(id, value) {
+            const sel = document.getElementById(id);
+            const v = String(value);
+            if (![...sel.options].some((o) => o.value === v)) sel.add(new Option(v, v));
+            sel.value = v;
+        }
+
+        function openProfile() {
+            setSelect('pf-disorder', profile.disorder);
+            setSelect('pf-severity', profile.severity);
+            setSelect('pf-max', profile.max_recording_s);
+            setSelect('pf-pause', profile.pause_s);
+            setSelect('pf-tolerance', profile.tolerance);
+            document.getElementById('pf-hint').classList.add('hidden');
+            document.getElementById('profile-dialog').showModal();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const dialog = document.getElementById('profile-dialog');
+            document.getElementById('pf-disorder').addEventListener('change', (e) => {
+                const preset = PRESETS[e.target.value];
+                const hint = document.getElementById('pf-hint');
+                if (!preset) { hint.classList.add('hidden'); return; }
+                setSelect('pf-max', preset.max_recording_s);
+                setSelect('pf-pause', preset.pause_s);
+                setSelect('pf-tolerance', preset.tolerance);
+                hint.textContent = 'Se han puesto los valores sugeridos para este trastorno. Puedes cambiarlos.';
+                hint.classList.remove('hidden');
+            });
+            dialog.addEventListener('close', async () => {
+                if (dialog.returnValue !== 'ok') return;
+                const body = {
+                    disorder: document.getElementById('pf-disorder').value,
+                    severity: document.getElementById('pf-severity').value,
+                    max_recording_s: Number(document.getElementById('pf-max').value),
+                    pause_s: Number(document.getElementById('pf-pause').value),
+                    tolerance: Number(document.getElementById('pf-tolerance').value),
+                };
+                try {
+                    const res = await fetch('/api/speech-settings', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+                    });
+                    if (!res.ok) throw new Error(res.statusText);
+                    applyProfile((await res.json()).profile);
+                    setStatus('Ajustes del paciente guardados.');
+                } catch (e) {
+                    setStatus('No se pudieron guardar los ajustes del paciente. Inténtalo de nuevo.');
+                }
+            });
+        });
+
+        function renderCloudSpeech() {
+            // Sin reconocimiento en el navegador (p. ej. Firefox) solo hay reconocimiento local
+            if (!BrowserRecognition) return;
+            document.getElementById('cloud-speech-label').classList.remove('hidden');
+            document.getElementById('cloud-speech-btn').classList.remove('hidden');
+            document.getElementById('cloud-speech-label').innerHTML = cloudSpeech
+                ? '<i class="fas fa-check text-green-600 mr-1"></i>Reconocimiento mejorado activado para este paciente'
+                : 'Reconocimiento local (la voz no sale de este equipo)';
+            document.getElementById('cloud-speech-btn').textContent = cloudSpeech ? 'Desactivar' : 'Activar reconocimiento mejorado';
+        }
+
+        async function setCloudSpeech(on) {
+            try {
+                const res = await fetch('/api/speech-settings', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cloud_speech: on }),
+                });
+                if (!res.ok) throw new Error(res.statusText);
+                cloudSpeech = (await res.json()).cloud_speech;
+            } catch (e) {
+                setStatus('No se pudo guardar el ajuste. Inténtalo de nuevo.');
+            }
+            renderCloudSpeech();
+        }
+
+        function toggleCloudSpeech() {
+            if (cloudSpeech) { setCloudSpeech(false); return; }
+            const dialog = document.getElementById('cloud-consent-dialog');
+            const check = document.getElementById('cloud-consent-check');
+            check.checked = false;
+            document.getElementById('cloud-consent-ok').disabled = true;
+            dialog.showModal();
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            const dialog = document.getElementById('cloud-consent-dialog');
+            const check = document.getElementById('cloud-consent-check');
+            check.addEventListener('change', () => { document.getElementById('cloud-consent-ok').disabled = !check.checked; });
+            dialog.addEventListener('close', () => { if (dialog.returnValue === 'ok' && check.checked) setCloudSpeech(true); });
+            loadSpeechSettings();
+        });
+
+        function startBrowserRecognition() {
+            browserHeard = [];
+            browserDone = null;
+            if (!cloudSpeech || !BrowserRecognition || !navigator.onLine) return;
+            const rec = new BrowserRecognition();
+            const lang = (navigator.language || '').toLowerCase().startsWith('es') ? navigator.language : 'es-ES';
+            rec.lang = lang;
+            rec.continuous = true;       // no se corta en la primera pausa: se detiene con la grabación
+            rec.interimResults = false;
+            rec.maxAlternatives = 1;
+            browserDone = new Promise((resolve) => {
+                rec.onresult = (event) => {
+                    // Solo la alternativa más probable de cada tramo: elegir entre varias la que más
+                    // se parece a la palabra objetivo daría por buenas pronunciaciones incorrectas.
+                    const results = Array.from(event.results).filter((r) => r.isFinal);
+                    const best = results.map((r) => r[0].transcript.trim()).join(' ').trim();
+                    browserHeard = best ? [best] : [];
+                };
+                rec.onerror = (event) => { console.warn('Reconocimiento del navegador:', event.error); };
+                rec.onend = () => resolve();
+            });
+            try { rec.start(); browserRec = rec; } catch (e) { browserDone = null; }
+        }
+
+        /** Detiene el reconocimiento del navegador y espera su resultado (como mucho 2 s) */
+        async function finishBrowserRecognition() {
+            if (!browserRec) return [];
+            try { browserRec.stop(); } catch (e) { /* ya parado */ }
+            browserRec = null;
+            if (browserDone) await Promise.race([browserDone, new Promise((r) => setTimeout(r, 2000))]);
+            return browserHeard;
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!(await loadCategories())) return;
+
+            // La categoría de la URL (desde el inicio) o, si no, la primera: así la página nunca
+            // se queda vacía esperando a que se pulse «Cargar»
             const params = new URLSearchParams(window.location.search);
             const category = params.get('category');
-            if (category) {
-                document.getElementById('category-select').value = category;
-                await loadWords();
-            }
+            const select = document.getElementById('category-select');
+            if (category && [...select.options].some((o) => o.value === category)) select.value = category;
+            await loadWords();
         });
 
         async function loadCategories() {
+            const select = document.getElementById('category-select');
             try {
                 const res = await fetch('/api/categories');
+                if (!res.ok) throw new Error(res.statusText);
                 const data = await res.json();
 
-                const select = document.getElementById('category-select');
+                select.innerHTML = '';
                 data.categories.forEach(cat => {
                     const option = document.createElement('option');
                     option.value = cat.id;
                     option.textContent = `${cat.icon} ${cat.name}`;
                     select.appendChild(option);
                 });
+                return true;
             } catch (e) {
                 console.error('Error:', e);
+                showListError('No se pudieron cargar las categorías.', 'location.reload()');
+                return false;
             }
+        }
+
+        function showListError(text, retry) {
+            document.getElementById('word-list').innerHTML = `
+                <div class="text-center py-4" role="alert">
+                    <p class="text-red-700 font-medium mb-3"><i class="fas fa-exclamation-triangle mr-2" aria-hidden="true"></i>${text}</p>
+                    <button type="button" onclick="${retry}" class="min-h-[48px] px-5 rounded-xl bg-primary text-white font-semibold">Reintentar</button>
+                </div>`;
+            setStatus(text);
         }
 
         async function loadWords() {
@@ -274,16 +589,17 @@
             currentLevel = parseInt(level);
 
             if (!category) {
-                alert('Selecciona una categoría');
+                setStatus('Elige una categoría para empezar.');
                 return;
             }
 
             try {
                 // Mostrar estado de carga
-                document.getElementById('word-list').innerHTML = '<div class="p-4 text-center"><i class="fas fa-spinner fa-spin text-primary"></i> Cargando...</div>';
+                document.getElementById('word-list').innerHTML = '<div class="p-4 text-center text-gray-700"><i class="fas fa-spinner fa-spin text-primary" aria-hidden="true"></i> Cargando…</div>';
 
                 // Repetición espaciada: primero las palabras que más le cuestan al paciente
                 const res = await fetch(`/api/words/practice/${encodeURIComponent(category)}?level=${level}&patient_id=${PATIENT_ID}&count=50`);
+                if (!res.ok) throw new Error(res.statusText);
                 const data = await res.json();
                 words = data.words;
                 wordIndex = 0;
@@ -295,12 +611,19 @@
                     // Pre-cargar audio de la primera palabra
                     preloadAudio(words[0].word);
                 } else {
+                    currentWord = null;
+                    setRecordUI('disabled');
+                    document.getElementById('listen-btn').disabled = true;
+                    document.getElementById('current-word').textContent = 'Sin palabras';
+                    document.getElementById('word-image').classList.add('hidden');
+                    document.getElementById('phonetic-hint').textContent = '';
                     document.getElementById('word-list').innerHTML =
-                        '<p class="text-gray-500 text-center py-4">No hay palabras en este nivel.</p>';
+                        '<p class="text-gray-600 text-center py-4">No hay palabras en este nivel. Prueba otro nivel u otra categoría.</p>';
+                    setStatus('No hay palabras en este nivel. Prueba otro nivel u otra categoría.');
                 }
             } catch (e) {
                 console.error('Error:', e);
-                alert('Error al cargar palabras.');
+                showListError('No se pudieron cargar las palabras.', 'loadWords()');
             }
         }
 
@@ -313,13 +636,13 @@
         function renderWordList() {
             const container = document.getElementById('word-list');
             container.innerHTML = words.map((word, idx) => `
-                <div onclick="selectWord(${idx})" 
-                     class="word-card p-3 rounded-xl cursor-pointer border-2 border-transparent hover:border-primary/50 ${idx === wordIndex ? 'bg-primary/10 border-primary' : 'bg-gray-50'}"
+                <button type="button" onclick="selectWord(${idx})" ${idx === wordIndex ? 'aria-current="true"' : ''}
+                     class="word-card w-full text-left min-h-[52px] p-3 rounded-xl border-2 ${idx === wordIndex ? 'bg-primary/10 border-primary' : 'bg-gray-50 border-transparent hover:border-primary/50'}"
                      id="word-item-${idx}">
                     ${word.image_url ? `<img src="${word.image_url}" alt="" width="32" height="32" loading="lazy" class="inline-block w-8 h-8 object-contain mr-2 align-middle">` : ''}
                     <span class="font-medium text-gray-800">${word.word}</span>
-                    <span class="text-xs text-gray-600 ml-2">Nivel ${word.level}</span>
-                </div>
+                    <span class="text-sm text-gray-600 ml-2">Nivel ${word.level}</span>
+                </button>
             `).join('');
         }
 
@@ -339,9 +662,8 @@
                 image.classList.add('hidden');
             }
             document.getElementById('phonetic-hint').textContent = currentWord.phonetic_hint || '';
-            document.getElementById('record-status').textContent = 'Presiona el botón para grabar';
-            anunciar('Presiona el botón para grabar');
-            document.getElementById('record-btn').disabled = false;
+            setStatus('Pulsa «Grabar» y di la palabra');
+            if (!isRecording && !isAnalyzing) setRecordUI('idle');
             document.getElementById('listen-btn').disabled = false;
             document.getElementById('feedback-panel').classList.add('hidden');
 
@@ -369,11 +691,42 @@
 
         function setAnalyzing(on) {
             isAnalyzing = on;
+            setRecordUI(on ? 'analyzing' : (currentWord ? 'idle' : 'disabled'));
+        }
+
+        // Estado del botón de grabar: color, icono, texto visible y etiqueta accesible a la vez
+        const RECORD_STATES = {
+            disabled:  { cls: 'bg-gray-300 text-gray-600 cursor-not-allowed', icon: 'fa-microphone', label: 'Grabar', aria: 'Grabar pronunciación (elige primero una palabra)' },
+            idle:      { cls: 'bg-primary text-white hover:bg-indigo-700', icon: 'fa-microphone', label: 'Grabar', aria: 'Grabar pronunciación' },
+            recording: { cls: 'bg-red-600 text-white ring-8 ring-red-200', icon: 'fa-stop', label: 'Parar', aria: 'Parar la grabación' },
+            analyzing: { cls: 'bg-gray-500 text-white cursor-wait', icon: 'fa-spinner fa-spin', label: 'Analizando…', aria: 'Analizando la pronunciación' },
+        };
+        let ringTimer = null;
+
+        function setRecordUI(state) {
+            const s = RECORD_STATES[state];
             const btn = document.getElementById('record-btn');
-            btn.classList.toggle('opacity-60', on);
-            btn.classList.toggle('cursor-wait', on);
-            btn.setAttribute('aria-busy', String(on));
-            document.getElementById('record-icon').className = on ? 'fas fa-spinner fa-spin text-4xl' : 'fas fa-microphone text-4xl';
+            btn.className = 'w-36 h-36 rounded-full shadow-xl transition-colors flex flex-col items-center justify-center gap-2 ' + s.cls;
+            btn.disabled = state === 'disabled';
+            btn.setAttribute('aria-label', s.aria);
+            btn.setAttribute('aria-pressed', String(state === 'recording'));
+            btn.setAttribute('aria-busy', String(state === 'analyzing'));
+            document.getElementById('record-icon').className = `fas ${s.icon} text-4xl`;
+            document.getElementById('record-label').textContent = s.label;
+
+            // Anillo con el tiempo que queda de grabación (se corta sola al llegar al tope del paciente)
+            const ring = document.getElementById('record-ring');
+            const progress = document.getElementById('record-ring-progress');
+            clearInterval(ringTimer);
+            ringTimer = null;
+            ring.classList.toggle('hidden', state !== 'recording');
+            progress.style.strokeDashoffset = '295.3';
+            if (state === 'recording') {
+                ringTimer = setInterval(() => {
+                    const done = Math.min(1, (Date.now() - recordingStartedAt) / MAX_RECORDING_TIME);
+                    progress.style.strokeDashoffset = String(295.3 * (1 - done));
+                }, 100);
+            }
         }
 
         // Se llama dentro del clic: el navegador solo permite arrancar el audio con un gesto del usuario
@@ -403,7 +756,7 @@
             }
             let stream;
             try {
-                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                stream = await navigator.mediaDevices.getUserMedia(MIC_CONSTRAINTS);
             } catch (e) {
                 console.error('Error config mic:', e);
                 setStatus(e.name === 'NotAllowedError'
@@ -418,16 +771,18 @@
             mediaRecorder.ondataavailable = (e) => {
                 if (e.data.size) audioChunks.push(e.data);
             };
-            mediaRecorder.onstop = () => {
+            mediaRecorder.onstop = async () => {
                 stream.getTracks().forEach(track => track.stop());
+                const heard = await finishBrowserRecognition();
                 if (heardSpeech) {
-                    sendAudioToServer();
+                    sendAudioToServer(heard);
                 } else {
                     setStatus('No te he oído. Pulsa el micrófono e inténtalo de nuevo.');
                 }
             };
 
             mediaRecorder.start();
+            startBrowserRecognition();
             recordingStartedAt = Date.now();
             isRecording = true;
             startVoiceDetection(stream);
@@ -435,9 +790,8 @@
                 if (isRecording) stopRecording();
             }, MAX_RECORDING_TIME);
 
-            document.getElementById('record-btn').classList.add('recording');
-            document.getElementById('record-icon').className = 'fas fa-stop text-4xl';
-            setStatus('Te escucho… (se detendrá cuando termines)');
+            setRecordUI('recording');
+            setStatus('Grabando… di la palabra. Se para sola al terminar, o toca «Parar».');
         }
 
         // Mide el volumen del micrófono en el navegador y detiene la grabación tras una pausa
@@ -457,7 +811,7 @@
 
             const started = Date.now();
             let lastTick = started;
-            let noiseFloor = 0.005;   // estimación inicial de ruido; se ajusta solo con lecturas en silencio
+            let noiseFloor = 0.004;   // estimación inicial de ruido; se ajusta solo con lecturas en silencio
             let speechMs = 0;
             let lastVoiceAt = 0;
             vadTimer = setInterval(() => {
@@ -470,14 +824,18 @@
                 lastTick = now;
                 fill.style.width = Math.min(100, rms * 600) + '%';
 
-                // Umbral con tope: aunque haya ruido de fondo, la voz siempre lo supera
-                const threshold = Math.min(0.06, Math.max(0.015, noiseFloor * 3));
+                // Umbral para EMPEZAR a contar voz: por encima del ruido de fondo, con mínimo bajo
+                // para voces débiles (hipofonía) y tope para que el ruido no lo dispare.
+                const startThreshold = Math.min(VAD.maxThreshold, Math.max(VAD.minThreshold, noiseFloor * 3));
+                // Una vez hablando, basta la mitad: las sílabas finales y las voces suaves no se
+                // toman por silencio (antes cortaba la grabación a mitad de palabra).
+                const threshold = speechMs > 0 ? Math.max(noiseFloor * 1.5, startThreshold / 2) : startThreshold;
                 if (rms > threshold) {
                     speechMs += dt;
                     lastVoiceAt = now;
                     if (speechMs >= VAD.minSpeechMs) heardSpeech = true;
-                } else {
-                    noiseFloor = Math.min(0.02, noiseFloor * 0.95 + rms * 0.05);
+                } else if (rms < startThreshold) {
+                    noiseFloor = Math.min(0.015, noiseFloor * 0.95 + rms * 0.05);
                 }
 
                 if (heardSpeech && now - lastVoiceAt >= VAD.silenceMs) {
@@ -510,11 +868,10 @@
             if (mediaRecorder && mediaRecorder.state !== 'inactive') {
                 mediaRecorder.stop();
             }
-            document.getElementById('record-btn').classList.remove('recording');
-            document.getElementById('record-icon').className = 'fas fa-microphone text-4xl';
+            setRecordUI(currentWord ? 'idle' : 'disabled');
         }
 
-        async function sendAudioToServer() {
+        async function sendAudioToServer(browserTranscripts = []) {
             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
             // La palabra y la duración se fijan ahora: el paciente puede pasar a otra palabra mientras se analiza
             const word = currentWord;
@@ -531,6 +888,7 @@
             formData.append('audio_file', audioBlob, 'recording.webm');
             formData.append('target_word', word.word);
             formData.append('level', currentLevel.toString());
+            if (browserTranscripts.length) formData.append('browser_transcripts', JSON.stringify(browserTranscripts));
 
             try {
                 const res = await fetch('/api/analyze-voice', {
@@ -542,7 +900,7 @@
                 if (!res.ok) throw new Error(res.statusText);
 
                 const result = await res.json();
-                saveAttempt(word, result, durationMs);
+                lastAttempt = { autoCorrect: !!result.is_correct, label: null, id: saveAttempt(word, result, durationMs) };
                 setAnalyzing(false);
                 showFeedback(result);
                 updateSessionStats(result);
@@ -558,9 +916,10 @@
             }
         }
 
-        // Guarda el intento en el progreso del paciente (alimenta Progreso y la repetición espaciada)
+        // Guarda el intento en el progreso del paciente (alimenta Progreso y la repetición espaciada).
+        // Devuelve el id del intento guardado (para la valoración del terapeuta) o null.
         async function saveAttempt(word, result, durationMs) {
-            if (!word || !word.id) return;
+            if (!word || !word.id) return null;
             attemptsByWord[word.id] = (attemptsByWord[word.id] || 0) + 1;
             try {
                 const res = await fetch('/api/progress', {
@@ -571,15 +930,57 @@
                         word_id: word.id,
                         attempt_number: attemptsByWord[word.id],
                         score: Math.round(result.scores ? result.scores.final : 0),
+                        is_correct: !!result.is_correct,
                         transcription: result.transcription || '',
                         feedback: result.feedback || {},
                         duration_ms: durationMs
                     })
                 });
                 if (!res.ok) throw new Error(res.statusText);
+                return (await res.json()).id || null;
             } catch (e) {
                 console.warn('No se pudo guardar el intento:', e);
+                document.getElementById('label-status').textContent = '⚠ Este intento no se guardó en el progreso (sin conexión con el servidor).';
+                return null;
             }
+        }
+
+        // ---- Valoración del terapeuta del último intento ----
+        let lastAttempt = null;   // { id: Promise<id|null>, autoCorrect, label: true|false|null }
+
+        function renderLabelButtons() {
+            const label = lastAttempt ? lastAttempt.label : null;
+            document.getElementById('label-ok').setAttribute('aria-pressed', String(label === true));
+            document.getElementById('label-no').setAttribute('aria-pressed', String(label === false));
+        }
+
+        async function labelAttempt(correct) {
+            if (!lastAttempt) return;
+            const attempt = lastAttempt;
+            const next = attempt.label === correct ? null : correct;   // pulsar otra vez la quita
+            const status = document.getElementById('label-status');
+            const id = await attempt.id;
+            if (!id) { status.textContent = '⚠ Este intento no se guardó: no se puede valorar.'; return; }
+            try {
+                const res = await fetch(`/api/progress/${encodeURIComponent(id)}/label`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ correct: next }),
+                });
+                if (!res.ok) throw new Error(res.statusText);
+            } catch (e) {
+                status.textContent = '⚠ No se pudo guardar la valoración. Inténtalo de nuevo.';
+                return;
+            }
+            // Ajustar el contador de correctos de la sesión al veredicto que cuenta
+            const before = attempt.label === null ? attempt.autoCorrect : attempt.label;
+            attempt.label = next;
+            const after = next === null ? attempt.autoCorrect : next;
+            sessionStats.correct += (after ? 1 : 0) - (before ? 1 : 0);
+            document.getElementById('session-correct').textContent = sessionStats.correct;
+            if (attempt === lastAttempt) renderLabelButtons();
+            status.textContent = next === null ? 'Valoración quitada: cuenta la automática.'
+                : next ? 'Guardado: el terapeuta lo da por bien dicho.' : 'Guardado: el terapeuta indica que no era correcto.';
+            setStatus(next === null ? (attempt.autoMessage || '') : next ? '✅ Bien dicho (valorado por el terapeuta)' : 'Vamos a intentarlo otra vez (valorado por el terapeuta)');
         }
 
         function showFeedback(result) {
@@ -601,15 +1002,17 @@
                 else sug.classList.add('hidden');
             }
 
+            // El color sigue al MISMO veredicto que el mensaje (umbral del nivel), no a un 70 fijo
             const circle = document.getElementById('score-circle');
             const offset = 283 - (283 * score / 100);
             circle.style.strokeDashoffset = offset;
-            circle.style.stroke = score >= 70 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444';
+            const level = result.feedback && result.feedback.level;
+            circle.style.stroke = result.is_correct ? '#059669' : level === 'fair' ? '#d97706' : '#dc2626';
             document.getElementById('score-text').textContent = score + '%';
 
             document.getElementById('feedback-message').textContent = result.feedback.message;
-            document.getElementById('feedback-transcription').textContent =
-                `"${result.transcription}"`;
+            document.getElementById('feedback-transcription').textContent = (result.transcription
+                ? `"${result.transcription}"` : 'No se entendió ninguna palabra') + (result.engine === 'browser' ? ' (reconocimiento mejorado)' : '');
             anunciar('Resultado: ' + result.feedback.message + ' Dijiste: ' + result.transcription);
             document.getElementById('feedback-encouragement').textContent = result.feedback.encouragement;
 
@@ -622,8 +1025,14 @@
                 tipsList.innerHTML = '';
             }
 
-            document.getElementById('record-status').textContent =
-                result.is_correct ? '✅ ¡Correcto!' : 'Intenta de nuevo';
+            const verdict = result.is_correct ? '✅ ¡Correcto!' : level === 'fair' ? 'Casi: inténtalo otra vez' : 'Vamos a intentarlo otra vez';
+            document.getElementById('record-status').textContent = verdict;
+            if (lastAttempt) lastAttempt.autoMessage = verdict;
+
+            document.getElementById('label-status').textContent = '';
+            renderLabelButtons();
+            // En móvil el resultado queda por debajo del micrófono: llevarlo a la vista
+            panel.scrollIntoView({ block: 'nearest', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
         }
 
         function updateSessionStats(result) {
@@ -655,15 +1064,18 @@
 
         function repeatWord() {
             document.getElementById('feedback-panel').classList.add('hidden');
-            document.getElementById('record-status').textContent = 'Presiona el botón para grabar';
-            anunciar('Presiona el botón para grabar');
+            setStatus('Pulsa «Grabar» y di la palabra');
+            document.getElementById('record-btn').focus();
         }
 
         function nextWord() {
             if (wordIndex < words.length - 1) {
                 selectWord(wordIndex + 1);
+                document.getElementById('record-btn').focus();
             } else {
-                alert('¡Has completado todas las palabras! 🎉');
+                document.getElementById('feedback-panel').classList.add('hidden');
+                setStatus(`Lista terminada: ${sessionStats.correct} de ${sessionStats.attempts} intentos correctos. ` +
+                    'Puedes repetir una palabra de la lista o elegir otra categoría o nivel.');
             }
         }
     </script>

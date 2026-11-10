@@ -304,6 +304,24 @@ python tools/eval_speech.py eval_audio/clinica
 Unas decenas de muestras por tipo de error ya dan una idea fiable de la sensibilidad y de los
 falsos aprobados.
 
+### Ajustar los umbrales de acierto
+
+`tools/calibrate_thresholds.py` propone, por nivel, cuánto subir o bajar el umbral de acierto
+(`base_thresholds` en `voice_processor.py`). Usa datos reales etiquetados:
+
+- las valoraciones del terapeuta en la práctica («Bien dicho» / «No era correcto»), que se
+  guardan con lo que oyó el reconocedor (no hace falta audio), y
+- los resultados de `eval_speech.py` sobre las muestras de /samples.
+
+```bash
+python tools/calibrate_thresholds.py
+python tools/calibrate_thresholds.py --results eval_audio/clinica/resultados.csv
+```
+
+Necesita al menos 20 intentos etiquetados por nivel, con bien y mal dichos. No cambia nada por
+sí sola: revisa la recomendación antes de tocar los umbrales. Para un paciente concreto, mejor
+usar «Ajustes del paciente → Exigencia al puntuar».
+
 ### Tests
 
 ```bash

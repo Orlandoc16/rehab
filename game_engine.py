@@ -249,10 +249,12 @@ class GameEngine:
     
     def _check_achievements(self, patient_id: str, progress_data: Dict):
         """Verifica y desbloquea logros"""
+        from database import GAME_PREFIX, is_attempt_correct
         score = progress_data.get("score", 0)
-        
-        # Primera palabra
-        if score >= 70:
+        is_speech = not str(progress_data.get("word_id", "")).startswith(GAME_PREFIX)
+
+        # Primera palabra (bien dicha: con el umbral del nivel, no con un 70 fijo)
+        if is_speech and is_attempt_correct(score, progress_data.get("is_correct")):
             self.db.unlock_achievement(patient_id, "first_word")
         
         # Rachas
@@ -281,15 +283,17 @@ class GameEngine:
     def _get_quick_stats(self, patient_id: str) -> Dict:
         """Obtiene estadísticas rápidas"""
         from sqlalchemy import func, case
-        from database import Progress
-        
+        from database import GAME_PREFIX, Progress, correct_sql
+
         session = self.db.SessionLocal()
         try:
+            # Solo intentos de pronunciación (las partidas de juegos no cuentan como palabras)
             result = session.query(
                 func.count(Progress.id).label('total_attempts'),
-                func.sum(case((Progress.score >= 70, 1), else_=0)).label('correct_attempts')
+                func.sum(case((correct_sql(), 1), else_=0)).label('correct_attempts')
             ).filter(
-                Progress.patient_id == patient_id
+                Progress.patient_id == patient_id,
+                ~Progress.word_id.like(GAME_PREFIX + "%")
             ).first()
             
             return {

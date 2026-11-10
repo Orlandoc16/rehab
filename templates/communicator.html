@@ -2,6 +2,8 @@
 {% import "partials/_ui.html" as ui with context %}
 
 {% block head %}
+    <!-- Arma la frase relacionando los pictogramas (acción + persona, objeto + acción...) -->
+    <script src="{{ asset('js/phrase-builder.js') }}"></script>
     <style>
         /* Ajustes de Accesibilidad Adulto Mayor */
         body {
@@ -37,8 +39,8 @@
     <!-- Navbar Simple -->
     <!-- Header -->
     {% call ui.site_header(active="communicator", subtitle="COMUNICADOR") %}
-                    <button aria-label="Configuración" onclick="toggleSettings()"
-                        class="w-10 h-10 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-600 hover:text-primary hover:shadow-md transition-all"
+                    <button type="button" aria-label="Ajustes del comunicador" onclick="toggleSettings()"
+                        class="w-12 h-12 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-600 hover:text-primary hover:shadow-md transition-all"
                         title="Configuración">
                         <i class="fas fa-cog text-xl"></i>
                     </button>
@@ -50,6 +52,8 @@
     <div
         class="bg-white border-b-2 border-gray-200 p-4 md:p-6 sticky top-[72px] z-40 shadow-soft transition-all duration-300">
         <div class="container mx-auto max-w-4xl">
+            <!-- Pictogramas elegidos (tocar uno lo quita) -->
+            <div id="sentence-strip" class="hidden flex gap-2 overflow-x-auto pt-2 pb-2 mb-2" aria-label="Pictogramas de la frase"></div>
             <!-- Visor de frase -->
             <div id="sentence-display"
                 class="min-h-[80px] bg-gray-100 rounded-2xl border-2 border-gray-300 flex flex-wrap items-center p-4 mb-4 text-2xl md:text-3xl font-medium text-gray-800 leading-normal transition-all">
@@ -58,16 +62,23 @@
             </div>
 
             <!-- Botones de Acción -->
-            <div class="flex gap-4">
+            <div class="flex gap-3">
                 <button aria-label="Escuchar la frase" onclick="speakSentence()"
-                    class="flex-1 bg-indigo-600 text-white rounded-xl py-4 text-xl font-bold shadow-lg hover:bg-indigo-700 active:bg-indigo-800 transition flex items-center justify-center gap-3">
+                    class="flex-1 min-w-0 bg-indigo-600 text-white rounded-xl py-4 px-2 text-lg sm:text-xl font-bold shadow-lg hover:bg-indigo-700 active:bg-indigo-800 transition flex items-center justify-center gap-2 sm:gap-3">
                     <i class="fas fa-volume-high text-2xl"></i> HABLAR
                 </button>
 
-                <button onclick="clearSentence()"
-                    class="w-20 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300 transition flex items-center justify-center"
-                    aria-label="Borrar todo">
-                    <i class="fas fa-trash-alt text-xl"></i>
+                <!-- Quitar solo el último: un toque equivocado no obliga a empezar de nuevo -->
+                <button type="button" onclick="removeLast()" id="undo-btn" disabled
+                    class="min-w-[5rem] px-2 sm:px-3 bg-amber-100 text-amber-900 rounded-xl font-bold hover:bg-amber-200 active:bg-amber-300 disabled:opacity-50 transition flex flex-col items-center justify-center gap-1">
+                    <svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><path d="M17 9l-6 6M11 9l6 6"/></svg>
+                    <span class="text-sm leading-tight">Quitar último</span>
+                </button>
+
+                <button type="button" onclick="clearSentence()"
+                    class="min-w-[4.5rem] px-2 sm:px-3 bg-gray-200 text-gray-800 rounded-xl font-bold hover:bg-gray-300 active:bg-gray-400 transition flex flex-col items-center justify-center gap-1">
+                    <i class="fas fa-trash-alt text-xl" aria-hidden="true"></i>
+                    <span class="text-sm leading-tight">Borrar todo</span>
                 </button>
             </div>
             <p id="comm-status" class="hidden mt-3 text-sm text-center rounded-lg px-3 py-2" role="status" aria-live="polite"></p>
@@ -93,12 +104,35 @@
         </div>
 
         <!-- Atribución obligatoria (licencia CC BY-NC-SA de ARASAAC) -->
-        <p class="text-xs text-gray-400 text-center pb-20">
+        <p class="text-xs text-gray-600 text-center pb-20">
             Pictogramas: Sergio Palao · <a href="https://arasaac.org" target="_blank" rel="noopener" class="underline hover:text-gray-600">ARASAAC</a>
             (Gobierno de Aragón) · Licencia <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.es" target="_blank" rel="noopener" class="underline hover:text-gray-600">CC BY-NC-SA</a>
         </p>
 
     </main>
+
+    <!-- Ajustes del comunicador (se guardan en este dispositivo) -->
+    <dialog id="comm-settings" class="rounded-2xl p-0 max-w-lg w-[calc(100%-2rem)] shadow-2xl backdrop:bg-black/40">
+        <form method="dialog" class="p-6 text-left">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Ajustes del comunicador</h3>
+            <fieldset class="mb-5">
+                <legend class="font-semibold text-gray-800 mb-1">Filtro de toques repetidos</legend>
+                <p class="text-gray-600 text-base mb-3">Para temblor: ignora un toque que llega justo después del anterior.</p>
+                <div class="flex flex-col gap-2">
+                    <label class="flex items-center gap-3 min-h-[48px] px-3 rounded-xl border border-gray-200"><input type="radio" name="tremor" value="400" class="w-5 h-5"> Normal (mismo pictograma, 0,4 s)</label>
+                    <label class="flex items-center gap-3 min-h-[48px] px-3 rounded-xl border border-gray-200"><input type="radio" name="tremor" value="1000" class="w-5 h-5"> Fuerte (cualquier pictograma, 1 s)</label>
+                    <label class="flex items-center gap-3 min-h-[48px] px-3 rounded-xl border border-gray-200"><input type="radio" name="tremor" value="0" class="w-5 h-5"> Desactivado</label>
+                </div>
+            </fieldset>
+            <label class="flex items-center gap-3 min-h-[48px] mb-6 font-semibold text-gray-800">
+                <input type="checkbox" id="speak-on-tap" class="w-5 h-5">
+                Decir cada pictograma en voz alta al tocarlo
+            </label>
+            <div class="flex justify-end">
+                <button value="ok" class="px-6 py-3 min-h-[48px] rounded-xl bg-primary text-white font-semibold">Listo</button>
+            </div>
+        </form>
+    </dialog>
 
     <!-- Audio Player Oculto -->
     <audio id="audio-player" class="hidden"></audio>
@@ -110,6 +144,26 @@
             currentCategory: null,
             sentenceItems: [], // Array de objetos pictograma
         };
+
+        // Ajustes guardados en este dispositivo: filtro de temblor (ms) y voz al tocar
+        const SETTINGS_KEY = 'rehab-comunicador';
+        let SETTINGS = { tremorMs: 400, speakOnTap: false };
+        try { Object.assign(SETTINGS, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch (e) { /* sin almacenamiento */ }
+        let lastTap = { id: null, at: 0 };
+
+        function toggleSettings() {
+            const dialog = document.getElementById('comm-settings');
+            dialog.querySelectorAll('input[name=tremor]').forEach((r) => { r.checked = Number(r.value) === SETTINGS.tremorMs; });
+            document.getElementById('speak-on-tap').checked = SETTINGS.speakOnTap;
+            dialog.showModal();
+        }
+        document.getElementById('comm-settings').addEventListener('close', () => {
+            const dialog = document.getElementById('comm-settings');
+            const tremor = dialog.querySelector('input[name=tremor]:checked');
+            if (tremor) SETTINGS.tremorMs = Number(tremor.value);
+            SETTINGS.speakOnTap = document.getElementById('speak-on-tap').checked;
+            try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SETTINGS)); } catch (e) { /* sin almacenamiento */ }
+        });
 
         const DOM = {
             tabs: document.getElementById('category-tabs'),
@@ -225,8 +279,16 @@
             const item = CONFIG.items.find(i => i.id === itemId);
             if (!item) return;
 
+            // Filtro de temblor: un segundo toque muy seguido se ignora (normal: solo si es el
+            // mismo pictograma; fuerte: cualquiera)
+            const now = Date.now();
+            const strong = SETTINGS.tremorMs >= 1000;
+            if (SETTINGS.tremorMs && now - lastTap.at < SETTINGS.tremorMs && (strong || lastTap.id === itemId)) return;
+            lastTap = { id: itemId, at: now };
+
             STATE.sentenceItems.push(item);
             updateDisplay();
+            if (SETTINGS.speakOnTap) playVoice(DOM.audio, `/api/speak/${encodeURIComponent(item.label)}`, item.label);
 
             // Feedback táctil suave si disponible
             if (navigator.vibrate) navigator.vibrate(50);
@@ -237,12 +299,41 @@
             updateDisplay();
         }
 
+        function removeLast() {
+            if (!STATE.sentenceItems.length) return;
+            STATE.sentenceItems.pop();
+            updateDisplay();
+        }
+
+        function removeAt(index) {
+            STATE.sentenceItems.splice(index, 1);
+            updateDisplay();
+        }
+
+        // Miniaturas de los pictogramas elegidos: el paciente ve qué ha elegido aunque le cueste
+        // leer. Tocar una la quita.
+        function renderStrip() {
+            const strip = document.getElementById('sentence-strip');
+            strip.classList.toggle('hidden', STATE.sentenceItems.length === 0);
+            strip.innerHTML = STATE.sentenceItems.map((item, i) => {
+                const isImage = item.icon_src.includes('/') || item.icon_src.includes('.');
+                const pic = isImage
+                    ? `<img src="${item.icon_src}" alt="" width="48" height="48" class="w-12 h-12 object-contain pointer-events-none">`
+                    : `<i class="fas ${item.icon_src} text-2xl text-gray-700 pointer-events-none"></i>`;
+                return `<button type="button" onclick="removeAt(${i})" aria-label="Quitar ${item.label}" title="Quitar ${item.label}"
+                    class="relative shrink-0 w-16 h-16 bg-white rounded-xl border-2 border-gray-200 flex items-center justify-center hover:border-red-300">
+                    ${pic}<span class="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-gray-700 text-white text-xs flex items-center justify-center" aria-hidden="true">✕</span></button>`;
+            }).join('');
+            document.getElementById('undo-btn').disabled = STATE.sentenceItems.length === 0;
+        }
+
         function updateDisplay() {
+            renderStrip();
             if (STATE.sentenceItems.length === 0) {
                 DOM.display.innerHTML = '';
                 DOM.display.appendChild(DOM.placeholder);
-anunciar('Frase borrada');
-return;
+                anunciar('Frase borrada');
+                return;
             }
 
             const phraseText = constructPhrase(STATE.sentenceItems);
@@ -250,61 +341,10 @@ return;
             anunciar(phraseText);
         }
 
+        // Une los pictogramas en una frase con sentido («Caminar» + «Hijo» → «Quiero caminar
+        // con mi hijo»). La gramática está en static/js/phrase-builder.js.
         function constructPhrase(items) {
-            if (!items || items.length === 0) return "";
-            if (items.length === 1) return items[0].default_phrase || items[0].label;
-
-            // 1. COMBINACIONES ESPECIALES (Heurística ID+ID)
-            // Detectar secuencias específicas que requieren conector "con", "de", "para", etc.
-            const ids = items.map(i => i.id).join("+");
-            const SPECIAL_COMBOS = {
-                "help_up+wheelchair": "Ayúdame a levantarme con la silla de ruedas",
-                "sit_down+chair": "Quiero sentarme en la silla",
-                "shower+soap": "Quiero bañarme con jabón",
-                "coffee+milk": "Quiero café con leche",
-                "bread+coffee": "Quiero pan y café"
-            };
-            if (SPECIAL_COMBOS[ids]) return SPECIAL_COMBOS[ids];
-
-            // 2. FUSIÓN DE PREFIJOS (Listas inteligentes)
-            // Si todos los elementos empiezan con el mismo verbo ("Quiero", "Necesito"), fusionarlos.
-            const firstPhrase = items[0].default_phrase;
-            const firstWord = firstPhrase.split(" ")[0]; // "Quiero", "Necesito", "Tengo"
-
-            // Verificar si es un verbo de "petición" común
-            const isRequestVerb = ["Quiero", "Necesito", "Tengo", "Dame"].includes(firstWord);
-
-            if (isRequestVerb) {
-                // Verificar si todos comparten el prefijo, o si los siguientes son sustantivos simples (grammar.noun)
-                const consistent = items.every((item, index) => {
-                    if (index === 0) return true;
-                    // Compatible si tiene el mismo prefijo O si es un sustantivo puro
-                    const startsSame = item.default_phrase.startsWith(firstWord + " ");
-                    const isNoun = item.grammar && item.grammar.noun;
-                    return startsSame || isNoun;
-                });
-
-                if (consistent) {
-                    // Extraer los objetos
-                    const objects = items.map(item => {
-                        if (item.default_phrase.startsWith(firstWord + " ")) {
-                            return item.default_phrase.substring(firstWord.length + 1);
-                        }
-                        // Si es noun directo o frase distinta, usar label o noun en minúscula
-                        return (item.grammar && item.grammar.noun) || item.label.toLowerCase();
-                    });
-
-                    // Unir lista: "A, B y C"
-                    if (objects.length > 1) {
-                        const last = objects.pop();
-                        return `${firstWord} ${objects.join(", ")} y ${last}`;
-                    }
-                }
-            }
-
-            // 3. CONCATENACIÓN CONTEXTUAL
-            // Unir frases completas con puntuación para darle pausas naturales al TTS
-            return items.map(i => i.default_phrase).join(". ");
+            return buildPhrase(items);
         }
 
         async function speakSentence() {

@@ -248,6 +248,19 @@ class ProgressAndGamesApiTest(unittest.TestCase):
         stats = client.get("/api/stats/default")
         self.assertEqual(stats.status_code, 200)
 
+    def test_player_level_uses_server_points(self):
+        """La tarjeta de nivel de /games sale de los puntos reales del paciente (antes, de localStorage)."""
+        before = client.get("/api/games/level/default").json()
+        self.assertEqual(set(before) >= {"level", "icon", "total_points", "progress_to_next", "next_level", "points_to_next"}, True)
+        r = client.post("/api/progress", json={"word_id": "game_match", "score": 100, "transcription": "Juego: word_match"})
+        after = client.get("/api/games/level/default").json()
+        self.assertEqual(after["total_points"], before["total_points"] + r.json()["points_earned"])
+
+    def test_games_page_loads_games_script(self):
+        html = client.get("/games").text
+        self.assertIn("/static/js/games.js", html)
+        self.assertNotIn("webkitSpeechRecognition", html)  # la voz no sale hacia Google
+
     def test_complete_challenge_validates_input(self):
         # Validación Pydantic: cuerpo incompleto -> 422 con el detalle del campo
         r = client.post("/api/games/complete-challenge", json={})
@@ -292,6 +305,111 @@ class ProgressAndGamesApiTest(unittest.TestCase):
         r = client.get("/api/games/achievements/default")
         self.assertEqual(r.status_code, 200)
         self.assertIn("unlocked", r.json())
+
+
+class CorrectnessAndTherapistLabelTest(unittest.TestCase):
+    """Una sola definición de «correcto», valoración del terapeuta y juegos fuera de las
+    estadísticas de pronunciación. Cada prueba usa un paciente nuevo para no mezclar datos."""
+
+    def setUp(self):
+        self.c = TestClient(app_module.app)
+        login(self.c, patient_id=None)
+        self.c.post("/patients/new", data={"name": "Paciente Correctos", "next": "/"})
+        cat = self.c.get("/api/categories").json()["categories"][0]["id"]
+        self.words = self.c.get(f"/api/words/{cat}").json()["words"]
+
+    def _daily_correct(self):
+        return sum(d["correct"] for d in self.c.get("/api/stats/default").json()["daily_progress"])
+
+    def test_games_do_not_count_as_speech_attempts(self):
+        self.c.post("/api/progress", json={"word_id": "game_match", "score": 100})
+        self.c.post("/api/progress", json={"word_id": self.words[0]["id"], "score": 40, "is_correct": False})
+        progress = self.c.get("/api/progress/default").json()
+        self.assertEqual(progress["stats"]["total_attempts"], 1)
+        self.assertEqual(progress["stats"]["average_score"], 40)
+        self.assertTrue(all(not a["word_id"].startswith("game_") for a in progress["recent_attempts"]))
+        daily = self.c.get("/api/stats/default").json()["daily_progress"]
+        self.assertEqual(sum(d["attempts"] for d in daily), 1)
+
+    def test_level_threshold_and_therapist_decide_correctness(self):
+        word_id = self.words[0]["id"]
+        # 75 % pero el analizador dijo que no llegaba al umbral: no cuenta como correcto
+        r = self.c.post("/api/progress", json={"word_id": word_id, "score": 75, "is_correct": False})
+        attempt_id = r.json()["id"]
+        self.assertEqual(self._daily_correct(), 0)
+        # 62 % por encima del umbral del nivel 1: sí cuenta (antes hacía falta un 70)
+        self.c.post("/api/progress", json={"word_id": word_id, "score": 62, "is_correct": True})
+        self.assertEqual(self._daily_correct(), 1)
+
+        # El terapeuta manda; quitar la valoración vuelve a la automática
+        self.assertEqual(self.c.post(f"/api/progress/{attempt_id}/label", json={"correct": True}).status_code, 200)
+        self.assertEqual(self._daily_correct(), 2)
+        self.c.post(f"/api/progress/{attempt_id}/label", json={"correct": None})
+        self.assertEqual(self._daily_correct(), 1)
+
+    def test_label_only_for_own_speech_attempts(self):
+        game_id = self.c.post("/api/progress", json={"word_id": "game_maze", "score": 100}).json()["id"]
+        self.assertEqual(self.c.post(f"/api/progress/{game_id}/label", json={"correct": True}).status_code, 404)
+        own = self.c.post("/api/progress", json={"word_id": self.words[0]["id"], "score": 50}).json()["id"]
+        # Otro paciente (la sesión principal) no puede valorar intentos ajenos
+        self.assertEqual(client.post(f"/api/progress/{own}/label", json={"correct": True}).status_code, 404)
+        self.assertEqual(self.c.post("/api/progress/no-existe/label", json={"correct": True}).status_code, 404)
+
+    def test_difficult_words_are_reported(self):
+        hard, easy = self.words[0], self.words[1]
+        for score in (30, 40):
+            self.c.post("/api/progress", json={"word_id": hard["id"], "score": score})
+        for score in (95, 100):
+            self.c.post("/api/progress", json={"word_id": easy["id"], "score": score})
+        difficult = self.c.get("/api/stats/default").json()["difficult_words"]
+        self.assertEqual([(d["word"], d["attempts"], d["avg_score"]) for d in difficult], [(hard["word"], 2, 35.0)])
+
+
+class CalibrateThresholdsToolTest(unittest.TestCase):
+    def test_uses_therapist_labels_and_recommends_per_level(self):
+        import subprocess
+        import sys
+        c = TestClient(app_module.app)
+        login(c, patient_id=None)
+        c.post("/patients/new", data={"name": "Paciente Calibrar", "next": "/"})
+        word = c.get("/api/words/" + c.get("/api/categories").json()["categories"][0]["id"],
+                     params={"level": 1}).json()["words"][0]
+        for heard, ok in ((word["word"], True), ("xyz", False)):
+            pid = c.post("/api/progress", json={"word_id": word["id"], "score": 50, "transcription": heard}).json()["id"]
+            c.post(f"/api/progress/{pid}/label", json={"correct": ok})
+        out = subprocess.run([sys.executable, str(PROJECT / "tools/calibrate_thresholds.py"), "--min", "2"],
+                             capture_output=True, text=True, encoding="utf-8",
+                             env={**os.environ, "PYTHONIOENCODING": "utf-8"}).stdout
+        self.assertIn("terapeuta: 2", out)
+        self.assertIn("Nivel 1: 2 intentos (1 bien dichos, 1 mal dichos)", out)
+        self.assertIn("<- actual", out)
+
+
+class PhoneticHintTest(unittest.TestCase):
+    def test_seeded_words_use_correct_syllables(self):
+        words = {w["word"]: w["phonetic_hint"] for w in app_module.db.get_all_words()}
+        for word, hint in {"agua": "a-gua", "por favor": "por fa-vor", "tengo": "ten-go"}.items():
+            if word in words:
+                self.assertEqual(words[word], hint)
+
+    def test_old_hints_are_fixed_but_custom_hints_kept(self):
+        from database import Word
+        session = app_module.db.SessionLocal()
+        try:
+            session.add_all([Word(id="hint_old", word="pierna", category_id="custom", level=1, phonetic_hint="pi-erna"),
+                             Word(id="hint_mine", word="pierna", category_id="custom", level=1, phonetic_hint="PIER-na")])
+            session.commit()
+        finally:
+            session.close()
+        app_module.db._refresh_phonetic_hints()
+        session = app_module.db.SessionLocal()
+        try:
+            self.assertEqual(session.get(Word, "hint_old").phonetic_hint, "pier-na")
+            self.assertEqual(session.get(Word, "hint_mine").phonetic_hint, "PIER-na")
+            session.query(Word).filter(Word.id.in_(["hint_old", "hint_mine"])).delete()
+            session.commit()
+        finally:
+            session.close()
 
 
 class SpeakApiTest(unittest.TestCase):
@@ -451,8 +569,15 @@ class VoiceApiTest(unittest.TestCase):
             self.seen_paths.append(audio_path)
             return "agua"
 
-        def fake_analyze(audio_path: str, target_word: str, level: int = 1) -> Dict[str, Any]:
+        self.alternatives = None
+
+        self.tolerance = None
+
+        def fake_analyze(audio_path: str, target_word: str, level: int = 1, alternatives=None,
+                         tolerance_offset: float = 0) -> Dict[str, Any]:
             self.seen_paths.append(audio_path)
+            self.alternatives = alternatives
+            self.tolerance = tolerance_offset
             return {"transcription": "agua", "target": target_word, "level": level}
 
         self.vp.transcribe = fake_transcribe
@@ -476,6 +601,50 @@ class VoiceApiTest(unittest.TestCase):
         self.assertEqual(r.json()["level"], 5)
         self.assertFalse(os.path.exists(self.seen_paths[0]))
 
+    def _analyze_with_browser(self, heard):
+        return client.post("/api/analyze-voice", files={"audio_file": ("a.webm", b"fake-audio", "audio/webm")},
+                           data={"target_word": "agua", "browser_transcripts": heard})
+
+    def test_browser_transcripts_need_patient_consent(self):
+        """Lo que oye el navegador (Google) solo se usa si el paciente lo consintió."""
+        self.assertEqual(client.post("/api/speech-settings", json={"cloud_speech": False}).json()["cloud_speech"], False)
+        self._analyze_with_browser('["agua"]')
+        self.assertEqual(self.alternatives, [])
+
+        r = client.post("/api/speech-settings", json={"cloud_speech": True})
+        self.assertTrue(r.json()["cloud_speech"])
+        self.assertIsNotNone(r.json()["consent_at"])
+        self.assertTrue(client.get("/api/speech-settings").json()["cloud_speech"])
+        self._analyze_with_browser('["  ", 5, "' + "x" * 500 + '", "agua"]')
+        self.assertEqual(self.alternatives, ["x" * 200])   # se limpian, se acotan y solo cuenta la primera
+        self._analyze_with_browser("no es json")
+        self.assertEqual(self.alternatives, [])
+
+        client.post("/api/speech-settings", json={"cloud_speech": False})
+        self.assertIsNone(client.get("/api/speech-settings").json()["consent_at"])
+
+    def test_speech_profile_is_per_patient_and_validated(self):
+        c = TestClient(app_module.app)
+        login(c, patient_id=None)
+        c.post("/patients/new", data={"name": "Paciente Perfil", "next": "/"})
+        self.assertEqual(c.get("/api/speech-settings").json()["profile"],
+                         {"disorder": "", "severity": "", "max_recording_s": 12, "pause_s": 1.8, "tolerance": 0})
+        r = c.post("/api/speech-settings", json={"disorder": "disartria", "max_recording_s": 20, "tolerance": -5})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["profile"]["pause_s"], 1.8)          # lo no enviado se conserva
+        self.assertFalse(r.json()["cloud_speech"])                     # y no toca el consentimiento
+        c.post("/api/speech-settings", json={"pause_s": 3.5})
+        self.assertEqual(c.get("/api/speech-settings").json()["profile"],
+                         {"disorder": "disartria", "severity": "", "max_recording_s": 20, "pause_s": 3.5, "tolerance": -5})
+        for bad in ({"max_recording_s": 60}, {"pause_s": 0.2}, {"tolerance": 40}, {"disorder": "gripe"}):
+            with self.subTest(body=bad):
+                self.assertEqual(c.post("/api/speech-settings", json=bad).status_code, 422)
+        # La exigencia la lee el servidor del perfil del paciente y la pasa al análisis
+        c.post("/api/analyze-voice", files={"audio_file": ("a.webm", b"fake-audio", "audio/webm")}, data={"target_word": "agua"})
+        self.assertEqual(self.tolerance, -5)
+        # El paciente de la sesión principal no se ve afectado
+        self.assertEqual(client.get("/api/speech-settings").json()["profile"]["tolerance"], 0)
+
     def test_errors_return_500_and_still_clean_up(self):
         def boom(audio_path: str, language: str = "es", initial_prompt: Optional[str] = None) -> str:
             self.seen_paths.append(audio_path)
@@ -485,6 +654,77 @@ class VoiceApiTest(unittest.TestCase):
         r = client.post("/api/transcribe", files={"audio_file": ("a.webm", b"x", "audio/webm")})
         self.assertEqual(r.status_code, 500)
         self.assertFalse(os.path.exists(self.seen_paths[0]))
+
+
+class AnalyzeCombinationTest(unittest.TestCase):
+    """analyze() sin pista y combinando lo local con lo que oyó el navegador."""
+
+    def setUp(self):
+        self.vp = app_module.voice_processor
+        self.saved = self.vp.transcribe_with_retry
+        self.prompts = []
+
+        def fake(audio_path, language="es", initial_prompt=None):
+            self.prompts.append(initial_prompt)
+            return "pero"            # Whisper oye mal la palabra
+
+        self.vp.transcribe_with_retry = fake
+
+    def tearDown(self):
+        self.vp.transcribe_with_retry = self.saved
+
+    def test_no_target_hint_is_given_to_whisper(self):
+        r = self.vp.analyze("x.webm", "agua")
+        self.assertEqual(self.prompts, [None])
+        self.assertEqual(r["engine"], "local")
+        self.assertFalse(r["is_correct"])
+
+    def test_best_of_browser_and_local(self):
+        r = self.vp.analyze("x.webm", "agua", alternatives=["agua"])
+        self.assertTrue(r["is_correct"])
+        self.assertEqual(r["engine"], "browser")
+        self.assertEqual(self.prompts, [])       # el navegador ya oyó la palabra: no hace falta Whisper
+        r = self.vp.analyze("x.webm", "perro", alternatives=["gato"])
+        self.assertEqual(r["engine"], "local")    # «pero» se parece más a «perro» que «gato»
+
+
+class ScoringTest(unittest.TestCase):
+    """Puntuación sin Whisper: palabras de más, frases y ajuste de exigencia por paciente."""
+
+    def setUp(self):
+        self.vp = app_module.voice_processor
+
+    def score(self, heard, target, level=1, tolerance=0):
+        return self.vp._score_transcription(heard, target, level, tolerance)
+
+    def test_extra_words_are_not_a_pronunciation_error(self):
+        for heard, target in (("agua por favor", "agua"), ("el perro", "perro"), ("sí sí", "sí"),
+                              ("quiero agua por favor", "quiero agua"), ("buenos días doctor", "buenos días")):
+            with self.subTest(heard=heard):
+                r = self.score(heard, target, 1 if " " not in target else 3)
+                self.assertTrue(r["is_correct"], r["scores"]["final"])
+                self.assertLess(r["scores"]["final"], 100)                 # pequeña penalización
+                self.assertEqual(r["transcription"], heard)                # se muestra lo que se oyó
+
+    def test_wrong_or_missing_words_still_fail(self):
+        for heard, target in (("pero", "perro"), ("aua", "agua"), ("quiero agua", "quiero agua por favor"),
+                              ("necesito ir al baño", "necesito ayuda"),
+                              ("gracias a todos por ver el vídeo", "gracias")):  # demasiadas de más
+            with self.subTest(heard=heard):
+                self.assertFalse(self.score(heard, target, 1 if " " not in target else 3)["is_correct"])
+
+    def test_near_miss_is_casi_not_retry(self):
+        r = self.score("pero", "perro")
+        self.assertEqual(r["feedback"]["level"], "fair")
+
+    def test_patient_tolerance_moves_threshold(self):
+        normal = self.score("pero", "perro")
+        tolerant = self.score("pero", "perro", tolerance=-15)
+        self.assertEqual(tolerant["scores"]["threshold"], normal["scores"]["threshold"] - 15)
+        self.assertFalse(normal["is_correct"])
+        self.assertTrue(tolerant["is_correct"])
+        self.assertEqual(self.score("perro", "perro", tolerance=40)["scores"]["threshold"],
+                         normal["scores"]["threshold"] + 15)             # el ajuste está acotado
 
 
 if __name__ == "__main__":

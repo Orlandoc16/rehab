@@ -367,27 +367,89 @@ class VoiceProcessor:
         # Fallback a transcripción normal
         return self.transcribe(audio_path, language, initial_prompt=initial_prompt)
     
-    def analyze(self, audio_path: str, target_word: str, level: int = 1) -> Dict[str, Any]:
+    def analyze(self, audio_path: str, target_word: str, level: int = 1,
+                alternatives: Optional[List[str]] = None, tolerance_offset: float = 0) -> Dict[str, Any]:
         """
         Análisis completo: transcripción + comparación
-        
+
         Args:
             audio_path: Ruta al audio
             target_word: Palabra/frase objetivo
             level: Nivel de dificultad (1-5) para ajustar tolerancia
-        
-        Returns:
-            Dict con análisis completo
-        """
-        # Transcribir con "context prompt"
-        # Esto le dice al modelo "Es probable que escuches esta palabra"
-        prompt_context = f"La palabra es {target_word}. Por favor transcribe exactamente lo que escuchas."
-        # Si es una frase corta, simple prompt con la frase
-        if len(target_word.split()) < 5:
-            prompt_context = target_word
+            alternatives: lo que oyó el reconocimiento del navegador (solo pacientes que lo
+                consintieron). Se puntúa igual que la transcripción local y gana la mejor.
 
-        transcription = self.transcribe_with_retry(audio_path, initial_prompt=prompt_context)
-        
+        Returns:
+            Dict con análisis completo; "engine" dice qué reconocimiento dio el resultado
+        """
+        best: Optional[Dict[str, Any]] = None
+        for alt in alternatives or []:
+            r = self._score_transcription(alt, target_word, level, tolerance_offset)
+            if best is None or r["scores"]["final"] > best["scores"]["final"]:
+                best = {**r, "engine": "browser"}
+        # Si el navegador ya oyó la palabra tal cual, la transcripción local no puede mejorarlo:
+        # se omite y la respuesta llega varios segundos antes.
+        if best and best["scores"]["final"] >= 95:
+            return best
+
+        # SIN pista con la palabra objetivo: con ella Whisper «oía» la palabra aunque se dijera
+        # mal (35 % de las pronunciaciones incorrectas se daban por buenas en tools/eval_speech.py).
+        transcription = self.transcribe_with_retry(audio_path, initial_prompt=None)
+        local = {**self._score_transcription(transcription, target_word, level, tolerance_offset), "engine": "local"}
+        if best is None or local["scores"]["final"] >= best["scores"]["final"]:
+            return local
+        return best
+
+    # Palabras de más que se toleran (p. ej. «agua por favor» para «agua») y su penalización
+    MAX_EXTRA_WORDS = 3
+    EXTRA_WORD_PENALTY = 5
+
+    def _score_transcription(self, transcription: str, target_word: str, level: int = 1,
+                             tolerance_offset: float = 0) -> Dict[str, Any]:
+        """Puntúa una transcripción frente a la palabra objetivo.
+
+        Decir algo de más no es un error de pronunciación: si la transcripción tiene hasta
+        MAX_EXTRA_WORDS palabras más que el objetivo, también se puntúa el tramo que mejor
+        coincide («el perro» -> «perro»), con una pequeña penalización por palabra extra, y
+        gana el mejor resultado. tolerance_offset sube o baja el umbral (ajuste por paciente).
+        """
+        base = self._score_core(transcription, target_word, level, tolerance_offset)
+        window, extra = self._best_window(self._normalize_text(self._clean_whisper_output(transcription)),
+                                          self._normalize_text(target_word))
+        if not window or not 1 <= extra <= self.MAX_EXTRA_WORDS:
+            return base
+        w = self._score_core(window, target_word, level, tolerance_offset)
+        adjusted = max(0.0, w["scores"]["final"] - self.EXTRA_WORD_PENALTY * extra)
+        if adjusted <= base["scores"]["final"]:
+            return base
+        threshold = w["scores"]["threshold"]
+        is_correct = adjusted >= threshold
+        w["transcription"] = base["transcription"]
+        w["scores"] = {**w["scores"], "final": adjusted, "extra_words": extra}
+        w["is_correct"] = is_correct
+        w["feedback"] = self._generate_feedback(adjusted, window, self._normalize_text(target_word),
+                                                is_correct=is_correct, threshold=threshold)
+        return w
+
+    def _best_window(self, transcription_clean: str, target_clean: str):
+        """Tramo de la transcripción (con tantas palabras como el objetivo) que más se parece al
+        objetivo por fonética, y cuántas palabras sobran. ("", 0) si no sobra ninguna."""
+        words = transcription_clean.split()
+        n = len(target_clean.split())
+        if not n or len(words) <= n:
+            return "", 0
+        target_phone = " ".join(self._spanish_metaphone(w) for w in target_clean.split())
+        best, best_sim = "", -1.0
+        for i in range(len(words) - n + 1):
+            candidate = words[i:i + n]
+            sim = self._string_similarity(" ".join(self._spanish_metaphone(w) for w in candidate), target_phone)
+            if sim > best_sim:
+                best, best_sim = " ".join(candidate), sim
+        return best, len(words) - n
+
+    def _score_core(self, transcription: str, target_word: str, level: int = 1,
+                    tolerance_offset: float = 0) -> Dict[str, Any]:
+        """Puntuación de una transcripción completa frente al objetivo."""
         # Limpiar transcripción de caracteres extraños de Whisper
         transcription = self._clean_whisper_output(transcription)
         
@@ -423,7 +485,7 @@ class VoiceProcessor:
         if transcription_clean and target_clean:
             if transcription_clean == target_clean:
                 print("DEBUG: ¡COINCIDENCIA EXACTA DETECTADA!")
-                return self._create_perfect_result(transcription, target_word, level)
+                return self._create_perfect_result(transcription, target_word, level, tolerance_offset=tolerance_offset)
             
             # Verificar si son fonéticamente idénticos
             trans_phone = self._spanish_metaphone(transcription_clean)
@@ -431,7 +493,8 @@ class VoiceProcessor:
             
             if trans_phone == target_phone:
                 print(f"DEBUG: ¡COINCIDENCIA FONÉTICA EXACTA! '{trans_phone}'")
-                return self._create_perfect_result(transcription, target_word, level, score=95)
+                return self._create_perfect_result(transcription, target_word, level, score=95,
+                                                   tolerance_offset=tolerance_offset)
         
         # Calcular similitudes
         # Pasamos ya los textos limpios, pero _calculate_phonetic_similarity calculará sus fonemas de nuevo
@@ -439,9 +502,9 @@ class VoiceProcessor:
         phonetic_scores = self._calculate_phonetic_similarity(transcription_clean, target_clean)
         text_scores = self._calculate_text_similarity(transcription_clean, target_clean)
         
-        # Para frases (más de 2 palabras), usar también comparación flexible
+        # Para frases (desde 2 palabras), usar también comparación flexible por palabras clave
         word_count = len(target_clean.split()) if target_clean else 0
-        if word_count > 2:
+        if word_count >= 2:
             phrase_score = self._calculate_phrase_similarity(transcription_clean, target_clean)
             phonetic_scores["phrase_similarity"] = phrase_score
             phonetic_scores["average"] = (phonetic_scores.get("spanish_metaphone", 0) * 0.5 + phrase_score * 0.5)
@@ -453,14 +516,16 @@ class VoiceProcessor:
         print(f"DEBUG: Final Score: {final_score}")
         
         # Obtener umbral adaptativo
-        tolerance_threshold = self._get_tolerance_threshold(level, len(target_clean) if target_clean else 0)
+        tolerance_threshold = self._get_tolerance_threshold(level, len(target_clean) if target_clean else 0,
+                                                            tolerance_offset)
         is_correct = final_score >= tolerance_threshold
         
         # Detectar errores específicos (para rehabilitación)
         specific_errors = self._detect_specific_errors(transcription_clean, target_clean)
         
         # Generar feedback enriquecido
-        feedback = self._generate_feedback(final_score, transcription_clean, target_clean)
+        feedback = self._generate_feedback(final_score, transcription_clean, target_clean,
+                                           is_correct=is_correct, threshold=tolerance_threshold)
         
         # Agregar errores específicos al feedback
         if specific_errors and not is_correct:
@@ -513,7 +578,8 @@ class VoiceProcessor:
         
         return text.strip()
     
-    def _create_perfect_result(self, transcription: str, target: str, level: int, score: float = 100) -> Dict[str, Any]:
+    def _create_perfect_result(self, transcription: str, target: str, level: int, score: float = 100,
+                               tolerance_offset: float = 0) -> Dict[str, Any]:
         """
         Crea un resultado perfecto para coincidencias exactas.
         """
@@ -525,12 +591,12 @@ class VoiceProcessor:
                 "phonetic": {"spanish_metaphone": score, "average": score},
                 "text": {"exact_match": score, "levenshtein": score, "wer": score, "average": score},
                 "final": score,
-                "threshold": self._get_tolerance_threshold(level, len(target))
+                "threshold": self._get_tolerance_threshold(level, len(target), tolerance_offset)
             },
             "feedback": {
                 "level": "excellent",
-                "message": "¡Excelente! 🎉 Lo dijiste perfectamente.",
-                "encouragement": "¡Sigue así!",
+                "message": "¡Excelente! Lo dijiste muy bien.",
+                "encouragement": "Sigue así.",
                 "should_repeat": False,
                 "differences": [],
                 "tips": ["¡Perfecto! Continúa con la siguiente palabra."]
@@ -899,7 +965,7 @@ class VoiceProcessor:
         
         return min(100.0, max(0.0, final))
     
-    def _get_tolerance_threshold(self, level: int, word_length: int) -> float:
+    def _get_tolerance_threshold(self, level: int, word_length: int, offset: float = 0) -> float:
         """
         Umbrales adaptativos según dificultad.
         Nivel 1 (palabras simples): más tolerante
@@ -921,7 +987,9 @@ class VoiceProcessor:
         elif word_length >= 20:
             threshold -= 3  # Frases muy largas tienen más posibilidad de error
         
-        return max(50, min(80, threshold))
+        threshold = max(50, min(80, threshold))
+        # Ajuste del terapeuta para este paciente (negativo = más tolerante), con límites
+        return max(40, min(90, threshold + max(-15, min(15, offset))))
     
     def _calculate_phrase_similarity(self, transcription: str, target: str) -> float:
         """
@@ -1054,32 +1122,31 @@ class VoiceProcessor:
         
         return errors[:3]  # Máximo 3 errores para no abrumar
     
-    def _generate_feedback(self, score: float, transcription: str, target: str) -> Dict[str, Any]:
-        """Genera feedback para el usuario"""
-        if score >= 90:
+    def _generate_feedback(self, score: float, transcription: str, target: str,
+                           is_correct: Optional[bool] = None, threshold: float = 70) -> Dict[str, Any]:
+        """Mensaje para el paciente. Usa el MISMO umbral que decide si es correcto (antes un 61 %
+        salía «¡Correcto!» con el mensaje «intenta más despacio»)."""
+        if is_correct is None:
+            is_correct = score >= threshold
+        if is_correct and score >= 90:
             level = "excellent"
-            message = "¡Excelente! 🎉 Lo dijiste perfectamente."
-            encouragement = "¡Sigue así!"
+            message = "¡Excelente! Lo dijiste muy bien."
+            encouragement = "Sigue así."
             should_repeat = False
-        elif score >= 70:
+        elif is_correct:
             level = "good"
-            message = "¡Muy bien! 👍 Casi perfecto."
-            encouragement = "Un poco más de práctica y lo tendrás dominado."
+            message = "¡Bien dicho!"
+            encouragement = "Puedes pasar a la siguiente o repetirla para afianzarla."
             should_repeat = False
-        elif score >= 50:
+        elif score >= threshold - 15:
             level = "fair"
-            message = "Bien 😊 Vas por buen camino."
-            encouragement = "Intenta pronunciar más despacio y claro."
-            should_repeat = True
-        elif score >= 30:
-            level = "needs_work"
-            message = "Sigue intentando 💪"
-            encouragement = "Escucha el ejemplo y trata de imitarlo."
+            message = "Casi. Vas por buen camino."
+            encouragement = "Escucha el ejemplo y dilo despacio y claro."
             should_repeat = True
         else:
             level = "retry"
-            message = "Intentemos de nuevo 🔄"
-            encouragement = "No te preocupes, la práctica hace al maestro."
+            message = "Vamos a intentarlo otra vez."
+            encouragement = "Escucha el ejemplo y repítelo con calma."
             should_repeat = True
         
         # Detectar diferencias específicas

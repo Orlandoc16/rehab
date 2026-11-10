@@ -32,6 +32,10 @@ echo [*] Abre tu navegador en: http://localhost:8000
 echo [*] Presiona Ctrl+C para detener el servidor
 echo.
 
+REM Pagina /samples: grabar muestras de voz (con consentimiento) para afinar el reconocimiento.
+REM Ponlo a 0 cuando haya suficientes muestras.
+set EVAL_RECORDING=1
+
 python app.py
 
 pause

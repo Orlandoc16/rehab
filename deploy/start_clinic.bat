@@ -9,5 +9,8 @@ set HOST=127.0.0.1
 set PORT=8000
 REM La cookie de sesion solo viaja por HTTPS
 set COOKIE_SECURE=1
+REM Pagina /samples: grabar muestras de voz (con consentimiento) para afinar el reconocimiento.
+REM Ponlo a 0 cuando haya suficientes muestras.
+set EVAL_RECORDING=1
 python app.py
 pause
