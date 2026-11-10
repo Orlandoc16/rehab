@@ -21,6 +21,7 @@ import argparse
 import contextlib
 import csv
 import io
+import json
 import os
 import sys
 from collections import defaultdict
@@ -41,12 +42,22 @@ def from_database():
     db = Database()
     session = db.SessionLocal()
     try:
-        rows = (session.query(Progress.transcription, Progress.therapist_correct, Word.word, Word.level)
+        rows = (session.query(Progress.transcription, Progress.therapist_correct, Progress.feedback, Word.word, Word.level)
                 .join(Word, Progress.word_id == Word.id)
                 .filter(Progress.therapist_correct.is_not(None), ~Progress.word_id.like(GAME_PREFIX + "%"))
                 .all())
-        return [{"target": w, "heard": t or "", "correct": bool(c), "level": lvl or 1, "source": "terapeuta"}
-                for t, c, w, lvl in rows]
+        out = []
+        for t, c, fb, w, lvl in rows:
+            # Nivel elegido en la práctica y exigencia del paciente con los que se puntuó el intento
+            # (se guardan en feedback); los intentos antiguos usan el nivel de la palabra
+            try:
+                meta = json.loads(fb or "{}")
+            except ValueError:
+                meta = {}
+            level = meta.get("practice_level") or lvl or 1
+            out.append({"target": w, "heard": t or "", "correct": bool(c), "level": int(level),
+                        "tolerance": float(meta.get("tolerance") or 0), "source": "terapeuta"})
+        return out
     finally:
         session.close()
 
@@ -93,7 +104,7 @@ def main() -> int:
     with contextlib.redirect_stdout(io.StringIO()):
         vp = VoiceProcessor()
         for i in items:
-            r = vp._score_transcription(i["heard"], i["target"], i["level"])
+            r = vp._score_transcription(i["heard"], i["target"], i["level"], i.get("tolerance", 0))
             i["score"], i["threshold"] = r["scores"]["final"], r["scores"]["threshold"]
 
     by_level = defaultdict(list)

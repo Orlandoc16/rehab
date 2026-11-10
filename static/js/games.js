@@ -71,6 +71,16 @@ function pickWords(list, n, avoid = new Set()) {
     return out;
 }
 
+/** Una palabra que no se haya usado; si ya se usaron todas, se vuelve a empezar */
+function pickFresh(list, used) {
+    let [w] = pickWords(list, 1, used);
+    if (!w) {
+        used.clear();
+        [w] = pickWords(list, 1, used);
+    }
+    return w;
+}
+
 function picture(word, size = 'w-20 h-20') {
     return word.image_url
         ? `<img src="${esc(word.image_url)}" alt="" width="96" height="96" class="${size} object-contain mx-auto mb-2" loading="lazy" decoding="async">`
@@ -304,7 +314,7 @@ function nextMatchRound() {
     match.round++;
     // Preferir palabras con pictograma: ayudan a quien tiene dificultades para leer
     const candidates = easyWords().filter((w) => w.image_url);
-    const [target] = pickWords(candidates.length >= 4 ? candidates : easyWords(), 1, match.used);
+    const target = pickFresh(candidates.length >= MATCH_ROUNDS ? candidates : easyWords(), match.used);
     match.used.add(target.key);
     match.target = target;
     match.missed = false;
@@ -374,7 +384,7 @@ function nextSortRound() {
     const cats = sortableCategories();
     const catIds = new Set(cats.map((c) => c.id));
     const words = pool.words.filter((w) => catIds.has(w.category_id) && !w.multi && !w.ambiguous && w.level <= 3);
-    const [item] = pickWords(words, 1, sort.used);
+    const item = pickFresh(words, sort.used);
     sort.used.add(item.key);
     sort.item = item;
     sort.missed = false;

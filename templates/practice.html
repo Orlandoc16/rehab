@@ -137,7 +137,7 @@
                          una animación, que desaparece con «reducir movimiento») -->
                     <div class="flex justify-center">
                         <div class="relative w-44 h-44 flex items-center justify-center">
-                            <svg id="record-ring" class="absolute inset-0 w-full h-full -rotate-90 hidden" viewBox="0 0 100 100" aria-hidden="true">
+                            <svg id="record-ring" class="absolute inset-0 w-full h-full -rotate-90 hidden pointer-events-none" viewBox="0 0 100 100" aria-hidden="true">
                                 <circle cx="50" cy="50" r="47" fill="none" stroke="#fecaca" stroke-width="5" />
                                 <circle class="progress" id="record-ring-progress" cx="50" cy="50" r="47" fill="none" stroke="#dc2626" stroke-width="5"
                                     stroke-linecap="round" stroke-dasharray="295.3" stroke-dashoffset="295.3" />
@@ -335,7 +335,6 @@
         let wordIndex = 0;
         let isRecording = false;
         let mediaRecorder = null;
-        let audioChunks = [];
         let sessionStats = { attempts: 0, correct: 0, totalScore: 0 };
         let recordingTimeout = null;
         let MAX_RECORDING_TIME = 12000; // tope de la grabación; se ajusta por paciente (Ajustes del paciente)
@@ -360,6 +359,7 @@
         const MIC_CONSTRAINTS = {
             audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: true },
         };
+        let currentTake = null;       // grabación en curso: { chunks, word, level, heard, durationMs }
         let audioContext = null;      // uno solo, reutilizado (crearlo tarda ~1,5 s en algunos equipos)
         let vadSource = null;
         let vadTimer = null;
@@ -429,7 +429,9 @@
             setSelect('pf-pause', profile.pause_s);
             setSelect('pf-tolerance', profile.tolerance);
             document.getElementById('pf-hint').classList.add('hidden');
-            document.getElementById('profile-dialog').showModal();
+            const dialog = document.getElementById('profile-dialog');
+            dialog.returnValue = '';
+            dialog.showModal();
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -497,6 +499,7 @@
             const check = document.getElementById('cloud-consent-check');
             check.checked = false;
             document.getElementById('cloud-consent-ok').disabled = true;
+            dialog.returnValue = '';
             dialog.showModal();
         }
         document.addEventListener('DOMContentLoaded', () => {
@@ -612,7 +615,7 @@
                     preloadAudio(words[0].word);
                 } else {
                     currentWord = null;
-                    setRecordUI('disabled');
+                    if (!isRecording && !isAnalyzing) setRecordUI('disabled');
                     document.getElementById('listen-btn').disabled = true;
                     document.getElementById('current-word').textContent = 'Sin palabras';
                     document.getElementById('word-image').classList.add('hidden');
@@ -750,6 +753,10 @@
 
         async function startRecording() {
             if (isRecording || isAnalyzing || !currentWord) return;
+            // Si el reconocimiento en la nube está activo, se confirma con el servidor que el
+            // consentimiento sigue vigente (pudo retirarse desde otro equipo)
+            if (cloudSpeech) await loadSpeechSettings();
+            if (isRecording || isAnalyzing) return;
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 setStatus('❌ El micrófono solo funciona con HTTPS o en este mismo equipo (localhost).');
                 return;
@@ -766,17 +773,21 @@
             }
 
             mediaRecorder = new MediaRecorder(stream);
-            audioChunks = [];
             heardSpeech = false;
+            // Todo lo de esta grabación se guarda aparte: la palabra, el nivel y el audio no cambian
+            // aunque luego se elija otra palabra u otro nivel
+            const take = { chunks: [], word: currentWord, level: currentLevel, heard: false, durationMs: null };
+            currentTake = take;
             mediaRecorder.ondataavailable = (e) => {
-                if (e.data.size) audioChunks.push(e.data);
+                if (e.data.size) take.chunks.push(e.data);
             };
             mediaRecorder.onstop = async () => {
                 stream.getTracks().forEach(track => track.stop());
                 const heard = await finishBrowserRecognition();
-                if (heardSpeech) {
-                    sendAudioToServer(heard);
+                if (take.heard) {
+                    await sendAudioToServer(take, heard);
                 } else {
+                    setAnalyzing(false);
                     setStatus('No te he oído. Pulsa el micrófono e inténtalo de nuevo.');
                 }
             };
@@ -829,13 +840,16 @@
                 const startThreshold = Math.min(VAD.maxThreshold, Math.max(VAD.minThreshold, noiseFloor * 3));
                 // Una vez hablando, basta la mitad: las sílabas finales y las voces suaves no se
                 // toman por silencio (antes cortaba la grabación a mitad de palabra).
-                const threshold = speechMs > 0 ? Math.max(noiseFloor * 1.5, startThreshold / 2) : startThreshold;
+                // Solo después de oír voz de verdad: un golpe o una tos sueltos no rebajan el umbral.
+                const threshold = heardSpeech ? Math.max(noiseFloor * 1.5, startThreshold / 2) : startThreshold;
                 if (rms > threshold) {
                     speechMs += dt;
                     lastVoiceAt = now;
                     if (speechMs >= VAD.minSpeechMs) heardSpeech = true;
-                } else if (rms < startThreshold) {
-                    noiseFloor = Math.min(0.015, noiseFloor * 0.95 + rms * 0.05);
+                } else {
+                    // Un ruido breve que no llegó a ser voz se olvida tras 300 ms de silencio
+                    if (!heardSpeech && now - lastVoiceAt > 300) speechMs = 0;
+                    if (rms < startThreshold) noiseFloor = Math.min(0.015, noiseFloor * 0.95 + rms * 0.05);
                 }
 
                 if (heardSpeech && now - lastVoiceAt >= VAD.silenceMs) {
@@ -861,21 +875,27 @@
         function stopRecording(byUser = false) {
             if (!isRecording) return;
             isRecording = false;
-            if (byUser) heardSpeech = true;
+            if (currentTake) {
+                // byUser: el paciente pulsó para terminar -> se analiza aunque fuera muy bajito
+                currentTake.heard = heardSpeech || byUser;
+                currentTake.durationMs = recordingStartedAt ? Date.now() - recordingStartedAt : null;
+            }
             clearTimeout(recordingTimeout);
             recordingTimeout = null;
             stopVoiceDetection();
+            // Bloqueado («Analizando…») hasta que onstop termine: no se puede empezar otra toma
+            setAnalyzing(true);
             if (mediaRecorder && mediaRecorder.state !== 'inactive') {
                 mediaRecorder.stop();
+            } else {
+                setAnalyzing(false);
             }
-            setRecordUI(currentWord ? 'idle' : 'disabled');
         }
 
-        async function sendAudioToServer(browserTranscripts = []) {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-            // La palabra y la duración se fijan ahora: el paciente puede pasar a otra palabra mientras se analiza
-            const word = currentWord;
-            const durationMs = recordingStartedAt ? Date.now() - recordingStartedAt : null;
+        async function sendAudioToServer(take, browserTranscripts = []) {
+            const audioBlob = new Blob(take.chunks, { type: 'audio/webm' });
+            const word = take.word;
+            const durationMs = take.durationMs;
 
             // Si el servidor no responde a tiempo, se cancela y se avisa (en vez de quedarse "Procesando")
             const controller = new AbortController();
@@ -887,7 +907,7 @@
             const formData = new FormData();
             formData.append('audio_file', audioBlob, 'recording.webm');
             formData.append('target_word', word.word);
-            formData.append('level', currentLevel.toString());
+            formData.append('level', String(take.level));
             if (browserTranscripts.length) formData.append('browser_transcripts', JSON.stringify(browserTranscripts));
 
             try {
@@ -900,7 +920,7 @@
                 if (!res.ok) throw new Error(res.statusText);
 
                 const result = await res.json();
-                lastAttempt = { autoCorrect: !!result.is_correct, label: null, id: saveAttempt(word, result, durationMs) };
+                lastAttempt = { autoCorrect: !!result.is_correct, label: null, id: saveAttempt(word, result, durationMs, take.level) };
                 setAnalyzing(false);
                 showFeedback(result);
                 updateSessionStats(result);
@@ -918,7 +938,7 @@
 
         // Guarda el intento en el progreso del paciente (alimenta Progreso y la repetición espaciada).
         // Devuelve el id del intento guardado (para la valoración del terapeuta) o null.
-        async function saveAttempt(word, result, durationMs) {
+        async function saveAttempt(word, result, durationMs, level) {
             if (!word || !word.id) return null;
             attemptsByWord[word.id] = (attemptsByWord[word.id] || 0) + 1;
             try {
@@ -932,7 +952,7 @@
                         score: Math.round(result.scores ? result.scores.final : 0),
                         is_correct: !!result.is_correct,
                         transcription: result.transcription || '',
-                        feedback: result.feedback || {},
+                        feedback: { ...(result.feedback || {}), practice_level: level, tolerance: profile.tolerance },
                         duration_ms: durationMs
                     })
                 });

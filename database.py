@@ -875,6 +875,7 @@ class Database:
              daily_map = {}
              word_counts = {}
              word_scores = {}
+             word_correct = {}
              
              for p in all_p:
                  date_str = p.created_at.strftime("%Y-%m-%d")
@@ -885,8 +886,10 @@ class Database:
                  d = daily_map[date_str]
                  d["attempts"] += 1
                  d["total_score"] += score
-                 if is_attempt_correct(p.score, p.auto_correct, p.therapist_correct):
+                 correct = is_attempt_correct(p.score, p.auto_correct, p.therapist_correct)
+                 if correct:
                      d["correct"] += 1
+                 word_correct[p.word_id] = word_correct.get(p.word_id, 0) + int(correct)
                      
                  # Per word stats
                  if p.word_id not in word_counts:
@@ -907,28 +910,25 @@ class Database:
                  
              # Top words
              top_words_list = []
+             difficult = []
              for wid, count in word_counts.items():
                  w = session.get(Word, wid)
                  if w:
-                     top_words_list.append({
-                         "word": w.word,
-                         "attempts": count,
-                         "avg_score": word_scores[wid] / count
-                     })
+                     entry = {"word": w.word, "attempts": count, "avg_score": round(word_scores[wid] / count, 1)}
+                     top_words_list.append(entry)
+                     # Difícil: al menos 2 intentos y menos de la mitad correctos, con la misma
+                     # definición de «correcto» que el resto (manda la valoración del terapeuta)
+                     rate = word_correct.get(wid, 0) / count
+                     if count >= 2 and rate < 0.5:
+                         difficult.append({**entry, "correct_rate": round(rate * 100)})
              top_words_list.sort(key=lambda x: x["attempts"], reverse=True)
-             
+             difficult.sort(key=lambda x: (x["correct_rate"], x["avg_score"]))
+
              daily = daily_progress[-30:]  # Last 30 entries
              top = top_words_list[:10]
         finally:
             session.close()
-        # Palabras que más le cuestan (media baja con al menos 2 intentos y por debajo de 70)
-        difficult = [
-            {"word": w["word"], "attempts": w["difficulty_stats"]["attempts"],
-             "avg_score": w["difficulty_stats"]["avg_score"]}
-            for w in self.get_difficult_words(patient_id, limit=10)
-            if w["difficulty_stats"]["avg_score"] < 70
-        ]
-        return {"daily_progress": daily, "top_words": top, "difficult_words": difficult}
+        return {"daily_progress": daily, "top_words": top, "difficult_words": difficult[:10]}
 
     def set_therapist_label(self, patient_id: str, progress_id: str, correct: Optional[bool]) -> bool:
         """Valoración del terapeuta de un intento (None la quita). False si no es de ese paciente."""

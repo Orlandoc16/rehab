@@ -364,6 +364,15 @@ class CorrectnessAndTherapistLabelTest(unittest.TestCase):
         difficult = self.c.get("/api/stats/default").json()["difficult_words"]
         self.assertEqual([(d["word"], d["attempts"], d["avg_score"]) for d in difficult], [(hard["word"], 2, 35.0)])
 
+    def test_therapist_validation_removes_word_from_difficult(self):
+        word = self.words[0]
+        ids = [self.c.post("/api/progress", json={"word_id": word["id"], "score": 50, "is_correct": False}).json()["id"]
+               for _ in range(2)]
+        self.assertEqual([d["word"] for d in self.c.get("/api/stats/default").json()["difficult_words"]], [word["word"]])
+        for pid in ids:
+            self.c.post(f"/api/progress/{pid}/label", json={"correct": True})
+        self.assertEqual(self.c.get("/api/stats/default").json()["difficult_words"], [])
+
 
 class CalibrateThresholdsToolTest(unittest.TestCase):
     def test_uses_therapist_labels_and_recommends_per_level(self):
