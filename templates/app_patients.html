@@ -1,0 +1,254 @@
+{#- Pacientes en la app Android sin servidor (solo se usa en tools/build_android_web.py).
+    Misma página que patients.html, pero la lista y el alta van por el «servidor local». -#}
+{% extends "base.html" %}
+{% import "partials/_ui.html" as ui with context %}
+
+{% block body %}
+<body class="font-poppins bg-gradient-to-br from-indigo-50 via-white to-purple-50 min-h-screen">
+    {% call ui.site_header(subtitle="PACIENTES") %}{% endcall %}
+
+    <main class="container mx-auto max-w-3xl px-4 pt-24 md:pt-28 pb-12">
+        <div class="mb-6">
+            <h2 class="text-2xl md:text-3xl font-bold text-gray-800">Pacientes</h2>
+            <p class="text-gray-500">¿Con qué paciente vas a trabajar?</p>
+        </div>
+
+        <ul id="patient-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8" aria-label="Pacientes" aria-busy="true"></ul>
+
+        <details id="new-patient" class="bg-white rounded-2xl shadow-sm p-5">
+            <summary class="cursor-pointer font-bold text-gray-800 flex items-center gap-2">
+                <i class="fas fa-user-plus text-primary"></i> Nuevo paciente
+            </summary>
+            <form id="new-patient-form" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                <label class="flex flex-col gap-1 text-sm font-medium text-gray-700 sm:col-span-2">
+                    Nombre
+                    <input name="name" required maxlength="80" class="px-4 py-3 rounded-xl border border-gray-200 text-base focus:border-primary focus:ring-2 focus:ring-indigo-200 outline-none">
+                </label>
+                <label class="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                    Edad <span class="text-gray-600 font-normal">(opcional)</span>
+                    <input name="age" inputmode="numeric" pattern="[0-9]*" maxlength="3" class="px-4 py-3 rounded-xl border border-gray-200 text-base focus:border-primary focus:ring-2 focus:ring-indigo-200 outline-none">
+                </label>
+                <label class="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                    Diagnóstico <span class="text-gray-600 font-normal">(opcional)</span>
+                    <input name="diagnosis" maxlength="120" class="px-4 py-3 rounded-xl border border-gray-200 text-base focus:border-primary focus:ring-2 focus:ring-indigo-200 outline-none">
+                </label>
+                <label class="flex flex-col gap-1 text-sm font-medium text-gray-700 sm:col-span-2">
+                    Notas <span class="text-gray-600 font-normal">(opcional)</span>
+                    <textarea name="notes" rows="2" maxlength="1000" class="px-4 py-3 rounded-xl border border-gray-200 text-base focus:border-primary focus:ring-2 focus:ring-indigo-200 outline-none"></textarea>
+                </label>
+                <p id="new-patient-error" class="sm:col-span-2 text-red-700 text-sm hidden" role="alert"></p>
+                <button type="submit" class="sm:col-span-2 py-3 rounded-xl bg-primary text-white font-bold shadow-md hover:bg-indigo-600 transition">
+                    Crear y empezar
+                </button>
+            </form>
+        </details>
+
+        <section class="mt-8 bg-white rounded-2xl shadow-sm p-5" aria-labelledby="backup-title">
+            <h3 id="backup-title" class="font-bold text-gray-800 flex items-center gap-2 mb-2">
+                <i class="fas fa-floppy-disk text-primary"></i> Copia de seguridad
+            </h3>
+            <p class="text-sm text-gray-600 mb-4">Los datos de los pacientes solo están en esta tablet. Guarda una copia de vez en cuando
+                (por ejemplo, en una memoria USB o en el ordenador de la clínica).</p>
+            <div class="flex flex-col sm:flex-row gap-3">
+                <button type="button" id="backup-export" class="flex-1 min-h-[48px] px-4 rounded-xl bg-indigo-50 text-indigo-700 font-medium hover:bg-indigo-100">
+                    <i class="fas fa-download mr-2"></i>Guardar copia
+                </button>
+                <button type="button" id="backup-import" class="flex-1 min-h-[48px] px-4 rounded-xl bg-gray-50 text-gray-700 font-medium hover:bg-gray-100">
+                    <i class="fas fa-upload mr-2"></i>Restaurar una copia
+                </button>
+            </div>
+            <p id="backup-status" class="text-sm text-gray-600 mt-3" role="status"></p>
+        </section>
+    </main>
+
+    <!-- Ficha del paciente -->
+    <dialog id="patient-dialog" class="rounded-2xl p-0 max-w-lg w-[calc(100%-2rem)] shadow-2xl backdrop:bg-black/40" aria-labelledby="patient-dialog-title">
+        <div class="p-6 text-left">
+            <h3 id="patient-dialog-title" class="text-xl font-bold text-gray-800 mb-4">Ficha del paciente</h3>
+            <form id="patient-edit-form" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label class="flex flex-col gap-1 text-sm font-medium text-gray-700 sm:col-span-2">
+                    Nombre
+                    <input name="name" required maxlength="80" class="px-4 py-3 rounded-xl border border-gray-200 text-base focus:border-primary focus:ring-2 focus:ring-indigo-200 outline-none">
+                </label>
+                <label class="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                    Edad <span class="text-gray-600 font-normal">(opcional)</span>
+                    <input name="age" inputmode="numeric" pattern="[0-9]*" maxlength="3" class="px-4 py-3 rounded-xl border border-gray-200 text-base focus:border-primary focus:ring-2 focus:ring-indigo-200 outline-none">
+                </label>
+                <label class="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                    Diagnóstico <span class="text-gray-600 font-normal">(opcional)</span>
+                    <input name="diagnosis" maxlength="120" class="px-4 py-3 rounded-xl border border-gray-200 text-base focus:border-primary focus:ring-2 focus:ring-indigo-200 outline-none">
+                </label>
+                <label class="flex flex-col gap-1 text-sm font-medium text-gray-700 sm:col-span-2">
+                    Notas <span class="text-gray-600 font-normal">(opcional)</span>
+                    <textarea name="notes" rows="3" maxlength="1000" class="px-4 py-3 rounded-xl border border-gray-200 text-base focus:border-primary focus:ring-2 focus:ring-indigo-200 outline-none"></textarea>
+                </label>
+                <p id="patient-edit-error" class="sm:col-span-2 text-red-700 text-sm hidden" role="alert"></p>
+                <div class="sm:col-span-2 flex justify-end gap-3">
+                    <button type="button" id="patient-cancel" class="px-5 py-3 min-h-[48px] rounded-xl bg-gray-100 text-gray-800 font-semibold hover:bg-gray-200">Cancelar</button>
+                    <button type="submit" class="px-5 py-3 min-h-[48px] rounded-xl bg-primary text-white font-semibold hover:bg-indigo-600">Guardar</button>
+                </div>
+            </form>
+
+            <!-- Borrar: en dos pasos, para que no ocurra por un toque equivocado -->
+            <div class="mt-6 pt-4 border-t border-gray-100">
+                <button type="button" id="patient-delete-ask" class="min-h-[48px] px-4 rounded-xl text-red-700 font-medium hover:bg-red-50 flex items-center gap-2">
+                    <i class="fas fa-trash-alt" aria-hidden="true"></i> Borrar paciente
+                </button>
+                <div id="patient-delete-box" class="hidden mt-3 p-4 rounded-xl bg-red-50 border border-red-200">
+                    <p id="patient-delete-text" class="text-red-900 font-medium mb-3" role="alert"></p>
+                    <div class="flex flex-wrap justify-end gap-3">
+                        <button type="button" id="patient-delete-cancel" class="px-5 py-3 min-h-[48px] rounded-xl bg-white text-gray-800 font-semibold border border-gray-200 hover:bg-gray-50">No borrar</button>
+                        <button type="button" id="patient-delete-ok" class="px-5 py-3 min-h-[48px] rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700">Sí, borrar para siempre</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </dialog>
+
+    <script>
+        const list = document.getElementById('patient-list');
+
+        function patientItem(p, active) {
+            const li = document.createElement('li');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'w-full text-left bg-white rounded-2xl p-5 shadow-sm border-2 ' +
+                (active ? 'border-primary' : 'border-transparent') +
+                ' hover:border-indigo-200 hover:shadow-md transition flex items-center gap-4';
+            const initial = document.createElement('span');
+            initial.className = 'w-12 h-12 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-lg font-bold flex-shrink-0';
+            initial.textContent = (p.name || '?').slice(0, 1).toUpperCase();
+            const text = document.createElement('span');
+            text.className = 'min-w-0';
+            const name = document.createElement('span');
+            name.className = 'block font-bold text-gray-800 truncate';
+            name.textContent = p.name;
+            const meta = document.createElement('span');
+            meta.className = 'block text-sm text-gray-500 truncate';
+            meta.textContent = [p.age ? `${p.age} años` : '', p.diagnosis || '', `${p.attempts} intentos`].filter(Boolean).join(' · ');
+            text.append(name, meta);
+            if (active) {
+                const cur = document.createElement('span');
+                cur.className = 'block text-xs font-medium text-primary mt-1';
+                cur.textContent = 'Paciente actual';
+                text.append(cur);
+            }
+            btn.append(initial, text);
+            btn.addEventListener('click', async () => {
+                const r = await fetch('/api/app/patients/select', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ patient_id: p.id }),
+                });
+                if (r.ok) location.href = '/';
+            });
+            // Ficha del paciente: editar sus datos o borrarlo
+            const editBtn = document.createElement('button');
+            editBtn.type = 'button';
+            editBtn.className = 'self-end min-h-[48px] px-4 rounded-xl text-indigo-700 font-medium hover:bg-white hover:shadow-sm flex items-center gap-2';
+            editBtn.innerHTML = '<i class="fas fa-pen" aria-hidden="true"></i> Editar ficha';
+            editBtn.setAttribute('aria-label', 'Editar ficha de ' + p.name);
+            editBtn.addEventListener('click', () => openPatient(p));
+            li.className = 'flex flex-col gap-2';
+            li.append(btn, editBtn);
+            return li;
+        }
+
+        // ---- ficha del paciente
+        const dialog = document.getElementById('patient-dialog');
+        const editForm = document.getElementById('patient-edit-form');
+        const deleteBox = document.getElementById('patient-delete-box');
+        const deleteAsk = document.getElementById('patient-delete-ask');
+        const editError = document.getElementById('patient-edit-error');
+        let editing = null;
+
+        function openPatient(p) {
+            editing = p;
+            editForm.elements.name.value = p.name || '';
+            editForm.elements.age.value = p.age ?? '';
+            editForm.elements.diagnosis.value = p.diagnosis || '';
+            editForm.elements.notes.value = p.notes || '';
+            const n = p.attempts || 0;
+            document.getElementById('patient-delete-text').textContent =
+                `Se borrarán ${p.name} y todo su progreso` + (n ? ` (${n} ${n === 1 ? 'intento' : 'intentos'})` : '') +
+                ', sus puntos y sus logros de esta tablet. No se puede deshacer.';
+            deleteBox.classList.add('hidden');
+            deleteAsk.classList.remove('hidden');
+            editError.classList.add('hidden');
+            dialog.showModal();
+        }
+
+        async function patientAction(suffix, body) {
+            const r = await fetch('/api/app/patients/' + encodeURIComponent(editing.id) + suffix, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+            });
+            if (!r.ok) return false;
+            dialog.close();
+            // La cabecera muestra el paciente activo: se recarga para que coincida con los cambios
+            location.reload();
+            return true;
+        }
+
+        editForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!(await patientAction('', Object.fromEntries(new FormData(editForm))))) {
+                editError.textContent = 'Revisa los datos: el nombre es obligatorio y la edad, un número.';
+                editError.classList.remove('hidden');
+            }
+        });
+        document.getElementById('patient-cancel').addEventListener('click', () => dialog.close());
+        deleteAsk.addEventListener('click', () => {
+            deleteAsk.classList.add('hidden');
+            deleteBox.classList.remove('hidden');
+            document.getElementById('patient-delete-cancel').focus();
+        });
+        document.getElementById('patient-delete-cancel').addEventListener('click', () => {
+            deleteBox.classList.add('hidden');
+            deleteAsk.classList.remove('hidden');
+        });
+        document.getElementById('patient-delete-ok').addEventListener('click', async () => {
+            if (!(await patientAction('/delete', {}))) {
+                editError.textContent = 'No se pudo borrar el paciente.';
+                editError.classList.remove('hidden');
+            }
+        });
+
+        async function loadPatients() {
+            const data = await (await fetch('/api/app/patients')).json();
+            list.replaceChildren();
+            if (!data.patients.length) {
+                const li = document.createElement('li');
+                li.className = 'col-span-full text-gray-500';
+                li.textContent = 'Todavía no hay pacientes. Añade el primero.';
+                list.append(li);
+                document.getElementById('new-patient').open = true;
+            }
+            for (const p of data.patients) list.append(patientItem(p, p.id === data.active_patient_id));
+            list.setAttribute('aria-busy', 'false');
+        }
+
+        document.getElementById('new-patient-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = new FormData(e.target);
+            const error = document.getElementById('new-patient-error');
+            const r = await fetch('/api/app/patients', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(Object.fromEntries(form)),
+            });
+            if (r.ok) { location.href = '/'; return; }
+            error.textContent = 'Revisa los datos: el nombre es obligatorio y la edad, un número.';
+            error.classList.remove('hidden');
+        });
+
+        const status = document.getElementById('backup-status');
+        document.getElementById('backup-export').addEventListener('click', () => {
+            status.textContent = window.RehabBridge ? RehabBridge.exportBackup() : 'No disponible.';
+        });
+        document.getElementById('backup-import').addEventListener('click', () => {
+            if (!confirm('Restaurar una copia sustituye TODOS los datos de esta tablet por los de la copia. ¿Continuar?')) return;
+            if (window.RehabBridge) RehabBridge.importBackup();
+        });
+
+        loadPatients();
+    </script>
+</body>
+{% endblock %}

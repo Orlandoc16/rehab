@@ -211,7 +211,7 @@ class StaticFilesTest(unittest.TestCase):
     def test_text_is_gzipped_but_images_are_not(self):
         css = client.get("/static/css/app.css", headers={"Accept-Encoding": "gzip"})
         self.assertEqual(css.headers.get("content-encoding"), "gzip")
-        img = client.get("/static/pictograms/arasaac/2445.webp", headers={"Accept-Encoding": "gzip"})
+        img = client.get("/static/pictograms/libre/leche.webp", headers={"Accept-Encoding": "gzip"})
         self.assertEqual(img.status_code, 200)
         self.assertNotIn("content-encoding", img.headers)
 
@@ -307,6 +307,142 @@ class ProgressAndGamesApiTest(unittest.TestCase):
         self.assertIn("unlocked", r.json())
 
 
+class PatientFileTest(unittest.TestCase):
+    """Ficha del paciente: editar sus datos y borrarlo con todo lo suyo."""
+
+    def setUp(self):
+        self.c = TestClient(app_module.app)
+        login(self.c, patient_id=None)
+        self.c.post("/patients/new", data={"name": "Paciente Ficha", "age": "60", "next": "/"})
+        self.pid = next(p["id"] for p in app_module.db.list_patients() if p["name"] == "Paciente Ficha")
+
+    def tearDown(self):
+        app_module.db.delete_patient(self.pid)
+
+    def test_edit_changes_the_file_and_validates(self):
+        r = self.c.post(f"/patients/{self.pid}/edit", follow_redirects=False,
+                        data={"name": "  Paciente Editado ", "age": "", "diagnosis": "Afasia", "notes": "Tardes"})
+        self.assertEqual((r.status_code, r.headers["location"]), (303, "/patients?saved=1"))
+        p = app_module.db.get_patient(self.pid)
+        self.assertEqual((p["name"], p["age"], p["diagnosis"], p["notes"]), ("Paciente Editado", None, "Afasia", "Tardes"))
+        self.assertIn("Cambios guardados", self.c.get("/patients?saved=1").text)
+        for bad in ({"name": "   "}, {"name": "Ana", "age": "doce"}, {"name": "Ana", "age": "200"}):
+            with self.subTest(bad=bad):
+                self.assertEqual(self.c.post(f"/patients/{self.pid}/edit", data=bad).status_code, 400)
+        self.assertEqual(self.c.post("/patients/no-existe/edit", data={"name": "Ana"}).status_code, 404)
+        self.assertEqual(app_module.db.get_patient(self.pid)["name"], "Paciente Editado")
+
+    def test_delete_needs_confirmation_and_removes_everything(self):
+        cat = self.c.get("/api/categories").json()["categories"][0]["id"]
+        word = self.c.get(f"/api/words/{cat}").json()["words"][0]
+        self.c.post("/api/progress", json={"word_id": word["id"], "score": 90, "is_correct": True})
+        self.assertGreater(app_module.db.get_total_points(self.pid), 0)
+
+        # Sin la confirmación que envía el aviso de la página no se borra nada
+        self.assertEqual(self.c.post(f"/patients/{self.pid}/delete").status_code, 400)
+        self.assertIsNotNone(app_module.db.get_patient(self.pid))
+
+        r = self.c.post(f"/patients/{self.pid}/delete", data={"confirm": "borrar"}, follow_redirects=False)
+        self.assertEqual((r.status_code, r.headers["location"]), (303, "/patients?deleted=1"))
+        self.assertIsNone(app_module.db.get_patient(self.pid))
+        self.assertEqual(app_module.db.get_total_points(self.pid), 0)
+        self.assertEqual(app_module.db.get_progress(self.pid)["stats"]["total_attempts"], 0)
+        # Era el paciente activo de la sesión: hay que elegir otro
+        self.assertEqual(self.c.get("/api/progress/default").status_code, 409)
+        self.assertEqual(self.c.post(f"/patients/{self.pid}/delete", data={"confirm": "borrar"}).status_code, 404)
+
+    def test_other_patients_are_untouched(self):
+        before = client.get("/api/progress/default").json()["stats"]["total_attempts"]
+        self.c.post(f"/patients/{self.pid}/delete", data={"confirm": "borrar"})
+        self.assertEqual(client.get("/api/progress/default").json()["stats"]["total_attempts"], before)
+        self.assertEqual(client.get("/patients").status_code, 200)
+
+
+class ReportReviewAndBoardTest(unittest.TestCase):
+    """Informe imprimible, sesión de repaso y comunicador a medida. Paciente nuevo en cada prueba."""
+
+    def setUp(self):
+        self.c = TestClient(app_module.app)
+        login(self.c, patient_id=None)
+        self.c.post("/patients/new", data={"name": "Paciente Informe", "age": "68", "diagnosis": "Afasia",
+                                           "notes": "Mejor por la mañana", "next": "/"})
+        self.pid = next(p["id"] for p in app_module.db.list_patients() if p["name"] == "Paciente Informe")
+        cat = self.c.get("/api/categories").json()["categories"][0]["id"]
+        self.words = self.c.get(f"/api/words/{cat}").json()["words"]
+
+    def tearDown(self):
+        app_module.db.delete_patient(self.pid)
+
+    def attempt(self, word, score, ok):
+        r = self.c.post("/api/progress", json={"word_id": word["id"], "score": score, "is_correct": ok})
+        self.assertEqual(r.status_code, 200)
+        return r.json()["id"]
+
+    def test_report_page(self):
+        empty = self.c.get("/report")
+        self.assertEqual(empty.status_code, 200)
+        self.assertIn("No hay intentos de práctica en este periodo", empty.text)
+
+        a, b = self.words[0], self.words[1]
+        self.attempt(a, 20, False)
+        rated = self.attempt(a, 30, False)
+        self.attempt(b, 90, True)
+        self.attempt(b, 95, True)
+        self.c.post(f"/api/progress/{rated}/label", json={"correct": True})   # el terapeuta corrige
+
+        for days in (7, 30, 90, 0, 12345):
+            with self.subTest(days=days):
+                self.assertEqual(self.c.get(f"/report?days={days}").status_code, 200)
+        html = self.c.get("/report").text
+        for text in ("Informe de progreso", "Paciente Informe", "68 años", "Afasia", "Mejor por la mañana",
+                     "Terapeuta de Prueba", "correctos (3 de 4)", "window.print()"):
+            with self.subTest(text=text):
+                self.assertIn(text, html)
+        data = app_module.db.get_report(self.pid, 30)
+        self.assertEqual((data["summary"]["attempts"], data["summary"]["correct_rate"], data["summary"]["days"]), (4, 75, 1))
+        self.assertEqual(data["therapist"], {"rated": 1, "overridden": 1})
+        self.assertEqual([w["word"] for w in data["mastered"]], [b["word"]])
+        self.assertEqual(data["difficult"], [])   # 1 de 2 correctos: no baja de la mitad
+        self.assertIsNone(app_module.db.get_report("no-existe", 30))
+
+    def test_review_words_are_the_ones_the_patient_fails(self):
+        self.assertEqual(self.c.get("/api/words/review/default").json()["words"], [])
+        fails, last_failed, fine = self.words[0], self.words[1], self.words[2]
+        self.attempt(fails, 10, False)
+        self.attempt(fails, 20, False)
+        for ok in (True, True, True, False):          # 75 % de aciertos, pero falló la última vez
+            self.attempt(last_failed, 80 if ok else 30, ok)
+        self.attempt(fine, 90, True)
+        data = self.c.get("/api/words/review/default").json()
+        self.assertEqual([w["word"] for w in data["words"]], [fails["word"], last_failed["word"]])
+        self.assertEqual(data["words"][0]["review_stats"], {"attempts": 2, "correct_rate": 0, "avg_score": 15.0})
+        self.assertEqual(data["count"], 2)
+        self.assertEqual(len(self.c.get("/api/words/review/default?limit=1").json()["words"]), 1)
+        # Al acertarla (y pasar del 60 %) sale del repaso
+        for _ in range(3):
+            self.attempt(fails, 90, True)
+        self.assertEqual([w["word"] for w in self.c.get("/api/words/review/default").json()["words"]],
+                         [last_failed["word"]])
+        self.assertIn("__repaso", self.c.get("/practice").text)
+
+    def test_board_profile_is_saved_per_patient(self):
+        self.assertEqual(self.c.get("/api/aac/profile").json(), {"hidden": [], "phrases": []})
+        r = self.c.post("/api/aac/profile", json={"hidden": ["walk", "walk", " rest "],
+                                                  "phrases": ["  Quiero llamar a Lucía ", "", "Café con leche"]})
+        self.assertEqual(r.json(), {"hidden": ["walk", "rest"], "phrases": ["Quiero llamar a Lucía", "Café con leche"]})
+        # Solo se sustituye la lista enviada
+        self.assertEqual(self.c.post("/api/aac/profile", json={"phrases": []}).json(),
+                         {"hidden": ["walk", "rest"], "phrases": []})
+        for bad in ({"phrases": "texto"}, {"phrases": ["x" * 121]}, {"hidden": [3]},
+                    {"phrases": [f"frase {i}" for i in range(41)]}):
+            with self.subTest(bad=bad):
+                self.assertEqual(self.c.post("/api/aac/profile", json=bad).status_code, 422)
+        self.assertEqual(self.c.get("/api/aac/profile").json()["hidden"], ["walk", "rest"])
+        # El tablero de los demás pacientes no cambia
+        self.assertEqual(client.get("/api/aac/profile").json(), {"hidden": [], "phrases": []})
+        self.assertIn("Personalizar el tablero", self.c.get("/communicator").text)
+
+
 class CorrectnessAndTherapistLabelTest(unittest.TestCase):
     """Una sola definición de «correcto», valoración del terapeuta y juegos fuera de las
     estadísticas de pronunciación. Cada prueba usa un paciente nuevo para no mezclar datos."""
@@ -346,6 +482,24 @@ class CorrectnessAndTherapistLabelTest(unittest.TestCase):
         self.assertEqual(self._daily_correct(), 2)
         self.c.post(f"/api/progress/{attempt_id}/label", json={"correct": None})
         self.assertEqual(self._daily_correct(), 1)
+
+    def test_progress_summary_counts_correct_like_the_therapist(self):
+        """El resumen (página Progreso) cuenta los correctos con la valoración del terapeuta."""
+        word_id = self.words[0]["id"]
+        low = self.c.post("/api/progress", json={"word_id": word_id, "score": 30, "is_correct": False}).json()["id"]
+        self.c.post("/api/progress", json={"word_id": word_id, "score": 90, "is_correct": True})
+        self.c.post("/api/progress", json={"word_id": word_id, "score": 50, "is_correct": False})
+        self.c.post("/api/progress", json={"word_id": "game_match", "score": 100})   # los juegos no cuentan
+
+        stats = self.c.get("/api/progress/default").json()["stats"]
+        self.assertEqual((stats["total_attempts"], stats["correct_attempts"], stats["correct_rate"]), (3, 1, 33))
+
+        self.c.post(f"/api/progress/{low}/label", json={"correct": True})
+        progress = self.c.get("/api/progress/default").json()
+        self.assertEqual((progress["stats"]["correct_attempts"], progress["stats"]["correct_rate"]), (2, 67))
+        by_id = {a["id"]: a for a in progress["recent_attempts"]}
+        self.assertTrue(by_id[low]["correct"])
+        self.assertEqual(sum(a["correct"] for a in progress["recent_attempts"]), 2)
 
     def test_label_only_for_own_speech_attempts(self):
         game_id = self.c.post("/api/progress", json={"word_id": "game_maze", "score": 100}).json()["id"]
@@ -509,21 +663,43 @@ class AacApiTest(unittest.TestCase):
 
 
 class PictogramLicenseTest(unittest.TestCase):
-    def test_arasaac_attribution_and_license(self):
-        html = client.get("/communicator").text
-        self.assertIn("ARASAAC", html)
-        self.assertIn("Sergio Palao", html)
-        self.assertIn("CC BY-NC-SA", html)
-        self.assertTrue((PROJECT / "static/pictograms/arasaac/LICENSE.txt").exists())
+    def test_free_license_attribution(self):
+        # CC BY-SA 4.0 obliga a citar la fuente allí donde se muestran los pictogramas
+        for page_url in ("/communicator", "/practice", "/games"):
+            with self.subTest(page=page_url):
+                html = client.get(page_url).text
+                self.assertIn("Mulberry Symbols", html)
+                self.assertIn("OpenMoji", html)
+                self.assertIn("CC BY-SA 4.0", html)
+                # Nada de la licencia anterior (solo uso no comercial)
+                self.assertNotIn("ARASAAC", html)
+                self.assertNotIn("BY-NC", html)
+        credits = (PROJECT / "static/pictograms/libre/ATRIBUCION.md").read_text(encoding="utf-8")
+        self.assertIn("CC BY-SA 4.0", credits)
 
-    def test_all_illustrations_are_arasaac(self):
-        # Estilo uniforme: todas las ilustraciones son de ARASAAC y no quedan archivos sin usar
-        folder = PROJECT / "static/pictograms"
+    def test_all_illustrations_are_free_license(self):
+        # Todas las ilustraciones son de licencia libre, existen y no quedan archivos sin usar
+        folder = PROJECT / "static/pictograms/libre"
         images = list(PICTOGRAM_IMAGES.values()) + list(WORD_IMAGES.values())
-        self.assertTrue(all(img.startswith("/static/pictograms/arasaac/") for img in images))
+        self.assertTrue(all(img.startswith("/static/pictograms/libre/") for img in images))
         on_disk = {p.relative_to(PROJECT).as_posix() for p in folder.rglob("*.webp")}
         used = {img.lstrip("/") for img in images}
         self.assertEqual(on_disk, used)
+        # Cada archivo tiene su fuente en la atribución (en una tabla o en la lista de dibujos propios)
+        credits = re.findall(r"[\w-]+\.webp", (folder / "ATRIBUCION.md").read_text(encoding="utf-8"))
+        self.assertEqual(sorted(p.name for p in folder.glob("*.webp") if p.name not in credits), [])
+
+    def test_old_databases_drop_removed_images(self):
+        # Una palabra personalizada que apuntaba a una imagen retirada se queda sin imagen (no rota)
+        from sqlalchemy import text
+        db = app_module.db
+        word_id = db.add_word({"word": "zzpalabrasinimagen", "category_id": "custom", "level": 1})
+        with db.engine.begin() as conn:
+            conn.execute(text("UPDATE words SET image_url = '/static/pictograms/arasaac/1.webp' WHERE id = :i"), {"i": word_id})
+        db._apply_word_images()
+        with db.engine.begin() as conn:
+            self.assertIsNone(conn.execute(text("SELECT image_url FROM words WHERE id = :i"), {"i": word_id}).scalar())
+            conn.execute(text("DELETE FROM words WHERE id = :i"), {"i": word_id})
 
     def test_practice_words_have_their_image(self):
         # Clave robusta a mayúsculas, tildes y signos; la ñ se conserva
@@ -637,15 +813,19 @@ class VoiceApiTest(unittest.TestCase):
         login(c, patient_id=None)
         c.post("/patients/new", data={"name": "Paciente Perfil", "next": "/"})
         self.assertEqual(c.get("/api/speech-settings").json()["profile"],
-                         {"disorder": "", "severity": "", "max_recording_s": 12, "pause_s": 1.8, "tolerance": 0})
-        r = c.post("/api/speech-settings", json={"disorder": "disartria", "max_recording_s": 20, "tolerance": -5})
+                         {"disorder": "", "severity": "", "max_recording_s": 12, "pause_s": 1.8, "tolerance": 0,
+                          "slow_voice": True})
+        r = c.post("/api/speech-settings", json={"disorder": "disartria", "max_recording_s": 20, "tolerance": -5,
+                                                 "slow_voice": False})
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()["profile"]["pause_s"], 1.8)          # lo no enviado se conserva
         self.assertFalse(r.json()["cloud_speech"])                     # y no toca el consentimiento
         c.post("/api/speech-settings", json={"pause_s": 3.5})
         self.assertEqual(c.get("/api/speech-settings").json()["profile"],
-                         {"disorder": "disartria", "severity": "", "max_recording_s": 20, "pause_s": 3.5, "tolerance": -5})
-        for bad in ({"max_recording_s": 60}, {"pause_s": 0.2}, {"tolerance": 40}, {"disorder": "gripe"}):
+                         {"disorder": "disartria", "severity": "", "max_recording_s": 20, "pause_s": 3.5, "tolerance": -5,
+                          "slow_voice": False})
+        for bad in ({"max_recording_s": 60}, {"pause_s": 0.2}, {"tolerance": 40}, {"disorder": "gripe"},
+                    {"slow_voice": "despacio"}):
             with self.subTest(body=bad):
                 self.assertEqual(c.post("/api/speech-settings", json=bad).status_code, 422)
         # La exigencia la lee el servidor del perfil del paciente y la pasa al análisis

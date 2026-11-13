@@ -25,3 +25,15 @@ node_modules/
 
 # Audios de evaluación (pueden contener voz de pacientes: nunca al repositorio)
 eval_audio/
+
+# Android (app envoltorio en android/)
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/*.jks
+android/keystore.properties
+android/*.apk
+android/third_party/
+android/app/src/main/assets/www/
+android/app/.cxx/

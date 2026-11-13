@@ -8,6 +8,7 @@ from starlette.concurrency import run_in_threadpool
 import auth
 
 from .. import security, settings
+from ..schemas import PatientCreate
 from ..security import safe_next, session_token_hash
 from ..services import db
 from ..web import page
@@ -65,9 +66,11 @@ async def logout(request: Request):
 
 
 @router.get("/patients", response_class=HTMLResponse)
-async def patients_page(request: Request, next: str = "/"):
+async def patients_page(request: Request, next: str = "/", saved: int = 0, deleted: int = 0):
     patients = await run_in_threadpool(db.list_patients)
-    return page(request, "patients.html", "Pacientes - Rehab Voice", patients=patients, next=safe_next(next))
+    notice = "Cambios guardados." if saved else "Paciente borrado." if deleted else ""
+    return page(request, "patients.html", "Pacientes - Rehab Voice", patients=patients, next=safe_next(next),
+                notice=notice)
 
 
 @router.post("/patients/select")
@@ -89,3 +92,28 @@ async def new_patient(request: Request, name: str = Form(...), age: str = Form("
         "notes": notes.strip() or None, "therapist": request.state.session["therapist_name"]})
     await run_in_threadpool(db.set_session_patient, session_token_hash(request), patient_id)
     return RedirectResponse(safe_next(next), status_code=303)
+
+
+@router.post("/patients/{patient_id}/edit")
+async def edit_patient(patient_id: str, name: str = Form(...), age: str = Form(""),
+                       diagnosis: str = Form(""), notes: str = Form("")):
+    """Cambia la ficha del paciente (como en la app móvil)."""
+    try:
+        data = PatientCreate(name=name, age=int(age) if age.strip() else None,
+                             diagnosis=diagnosis.strip() or None, notes=notes.strip() or None)
+    except ValueError:  # incluye los errores de validación de Pydantic
+        raise HTTPException(status_code=400, detail="Revisa los datos: el nombre es obligatorio y la edad, un número")
+    if not await run_in_threadpool(db.update_patient, patient_id, data.model_dump(exclude={"therapist"})):
+        raise HTTPException(status_code=404, detail="Paciente no encontrado")
+    return RedirectResponse("/patients?saved=1", status_code=303)
+
+
+@router.post("/patients/{patient_id}/delete")
+async def delete_patient(patient_id: str, confirm: str = Form("")):
+    """Borra al paciente con todo su progreso. La página pide confirmación y envía confirm=borrar:
+    una petición suelta (sin pasar por el aviso) no borra nada."""
+    if confirm != "borrar":
+        raise HTTPException(status_code=400, detail="Falta confirmar el borrado")
+    if not await run_in_threadpool(db.delete_patient, patient_id):
+        raise HTTPException(status_code=404, detail="Paciente no encontrado")
+    return RedirectResponse("/patients?deleted=1", status_code=303)

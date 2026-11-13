@@ -48,7 +48,8 @@ async def require_login(request: Request, call_next):
         return RedirectResponse(f"/login?next={quote(target)}", status_code=303)
 
     request.state.session = info
-    if info["patient_id"] is None and path not in NO_PATIENT_PATHS:
+    # /patients/<id>/edit y /delete: la ficha se gestiona aunque aún no se haya elegido paciente
+    if info["patient_id"] is None and path not in NO_PATIENT_PATHS and not path.startswith("/patients/"):
         if path.startswith("/api/"):
             return JSONResponse({"detail": "Selecciona un paciente"}, status_code=409)
         return RedirectResponse(f"/patients?next={quote(path)}", status_code=303)

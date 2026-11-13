@@ -18,9 +18,13 @@
             </form>
         </div>
 
+        {% if notice %}
+        <p class="mb-4 px-4 py-3 rounded-xl bg-green-50 border border-green-200 text-green-800 font-medium" role="status">{{ notice }}</p>
+        {% endif %}
+
         <ul class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8" aria-label="Pacientes">
             {% for p in patients %}
-            <li>
+            <li class="flex flex-col gap-2">
                 <form method="post" action="/patients/select">
                     <input type="hidden" name="patient_id" value="{{ p.id }}">
                     <input type="hidden" name="next" value="{{ next }}">
@@ -40,6 +44,12 @@
                         </span>
                     </button>
                 </form>
+                <!-- Ficha del paciente: editar sus datos o borrarlo (como en la app móvil) -->
+                <button type="button" class="edit-patient self-end min-h-[48px] px-4 rounded-xl text-indigo-700 font-medium hover:bg-white hover:shadow-sm flex items-center gap-2"
+                    data-id="{{ p.id }}" data-name="{{ p.name }}" data-age="{{ p.age if p.age is not none else '' }}"
+                    data-diagnosis="{{ p.diagnosis or '' }}" data-notes="{{ p.notes or '' }}" data-attempts="{{ p.attempts }}">
+                    <i class="fas fa-pen" aria-hidden="true"></i> Editar ficha<span class="visually-hidden"> de {{ p.name }}</span>
+                </button>
             </li>
             {% else %}
             <li class="col-span-full text-gray-500">Todavía no hay pacientes. Añade el primero.</li>
@@ -82,5 +92,87 @@
         </p>
         {% endif %}
     </main>
+
+    <!-- Ficha del paciente -->
+    <dialog id="patient-dialog" class="rounded-2xl p-0 max-w-lg w-[calc(100%-2rem)] shadow-2xl backdrop:bg-black/40" aria-labelledby="patient-dialog-title">
+        <div class="p-6 text-left">
+            <h3 id="patient-dialog-title" class="text-xl font-bold text-gray-800 mb-4">Ficha del paciente</h3>
+            <form method="post" id="patient-edit-form" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label class="flex flex-col gap-1 text-sm font-medium text-gray-700 sm:col-span-2">
+                    Nombre
+                    <input name="name" required maxlength="80" class="px-4 py-3 rounded-xl border border-gray-200 text-base focus:border-primary focus:ring-2 focus:ring-indigo-200 outline-none">
+                </label>
+                <label class="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                    Edad <span class="text-gray-600 font-normal">(opcional)</span>
+                    <input name="age" inputmode="numeric" pattern="[0-9]*" maxlength="3" class="px-4 py-3 rounded-xl border border-gray-200 text-base focus:border-primary focus:ring-2 focus:ring-indigo-200 outline-none">
+                </label>
+                <label class="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                    Diagnóstico <span class="text-gray-600 font-normal">(opcional)</span>
+                    <input name="diagnosis" maxlength="120" class="px-4 py-3 rounded-xl border border-gray-200 text-base focus:border-primary focus:ring-2 focus:ring-indigo-200 outline-none">
+                </label>
+                <label class="flex flex-col gap-1 text-sm font-medium text-gray-700 sm:col-span-2">
+                    Notas <span class="text-gray-600 font-normal">(opcional)</span>
+                    <textarea name="notes" rows="3" maxlength="1000" class="px-4 py-3 rounded-xl border border-gray-200 text-base focus:border-primary focus:ring-2 focus:ring-indigo-200 outline-none"></textarea>
+                </label>
+                <div class="sm:col-span-2 flex justify-end gap-3">
+                    <button type="button" id="patient-cancel" class="px-5 py-3 min-h-[48px] rounded-xl bg-gray-100 text-gray-800 font-semibold hover:bg-gray-200">Cancelar</button>
+                    <button type="submit" class="px-5 py-3 min-h-[48px] rounded-xl bg-primary text-white font-semibold hover:bg-indigo-600">Guardar</button>
+                </div>
+            </form>
+
+            <!-- Borrar: en dos pasos, para que no ocurra por un toque equivocado -->
+            <div class="mt-6 pt-4 border-t border-gray-100">
+                <button type="button" id="patient-delete-ask" class="min-h-[48px] px-4 rounded-xl text-red-700 font-medium hover:bg-red-50 flex items-center gap-2">
+                    <i class="fas fa-trash-alt" aria-hidden="true"></i> Borrar paciente
+                </button>
+                <form method="post" id="patient-delete-form" class="hidden mt-3 p-4 rounded-xl bg-red-50 border border-red-200">
+                    <input type="hidden" name="confirm" value="borrar">
+                    <p id="patient-delete-text" class="text-red-900 font-medium mb-3" role="alert"></p>
+                    <div class="flex flex-wrap justify-end gap-3">
+                        <button type="button" id="patient-delete-cancel" class="px-5 py-3 min-h-[48px] rounded-xl bg-white text-gray-800 font-semibold border border-gray-200 hover:bg-gray-50">No borrar</button>
+                        <button type="submit" class="px-5 py-3 min-h-[48px] rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700">Sí, borrar para siempre</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </dialog>
+
+    <script>
+        (function () {
+            const dialog = document.getElementById('patient-dialog');
+            const edit = document.getElementById('patient-edit-form');
+            const del = document.getElementById('patient-delete-form');
+            const ask = document.getElementById('patient-delete-ask');
+
+            document.querySelectorAll('.edit-patient').forEach((btn) => btn.addEventListener('click', () => {
+                const d = btn.dataset;
+                const base = '/patients/' + encodeURIComponent(d.id);
+                edit.action = base + '/edit';
+                del.action = base + '/delete';
+                edit.elements.name.value = d.name;
+                edit.elements.age.value = d.age;
+                edit.elements.diagnosis.value = d.diagnosis;
+                edit.elements.notes.value = d.notes;
+                const n = Number(d.attempts);
+                document.getElementById('patient-delete-text').textContent =
+                    `Se borrarán ${d.name} y todo su progreso` + (n ? ` (${n} ${n === 1 ? 'intento' : 'intentos'})` : '') +
+                    ', sus puntos y sus logros. No se puede deshacer.';
+                del.classList.add('hidden');
+                ask.classList.remove('hidden');
+                dialog.showModal();
+            }));
+            document.getElementById('patient-cancel').addEventListener('click', () => dialog.close());
+            ask.addEventListener('click', () => {
+                ask.classList.add('hidden');
+                del.classList.remove('hidden');
+                document.getElementById('patient-delete-cancel').focus();
+            });
+            document.getElementById('patient-delete-cancel').addEventListener('click', () => {
+                del.classList.add('hidden');
+                ask.classList.remove('hidden');
+                ask.focus();
+            });
+        })();
+    </script>
 </body>
 {% endblock %}

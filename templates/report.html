@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+{% import "partials/_ui.html" as ui with context %}
+
+{# Informe del paciente activo para imprimir o guardar como PDF (Ctrl+P → «Guardar como PDF»).
+   Lo dibuja el servidor (rehab/routers/pages.py → database.get_report): sin gráficos de JS, para
+   que salga igual en papel. #}
+
+{% set MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"] %}
+{% macro fecha(d) -%}{{ d.day }} de {{ MESES[d.month - 1] }} de {{ d.year }}{%- endmacro %}
+{% macro fecha_corta(d) -%}{{ d.day }} {{ MESES[d.month - 1][:3] }}{%- endmacro %}
+{% macro intentos(n) -%}{{ n }} {{ "intento" if n == 1 else "intentos" }}{%- endmacro %}
+{# Barra de porcentaje con su cifra: se entiende también impresa en blanco y negro #}
+{% macro barra(pct) -%}
+<div class="flex items-center gap-2 sm:gap-3">
+    <div class="report-track flex-1 min-w-[3rem] h-3 rounded-full bg-gray-200 overflow-hidden">
+        <div class="report-fill h-3 rounded-full bg-indigo-600" style="width: {{ pct }}%"></div>
+    </div>
+    <span class="w-12 text-right font-semibold text-gray-900 tabular-nums">{{ pct }}%</span>
+</div>
+{%- endmacro %}
+
+{% block head %}
+    <style>
+        .report-sheet { max-width: 820px; }
+        .report-track, .report-fill { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .report-table th, .report-table td { padding: 0.5rem 0.75rem; text-align: left; vertical-align: middle; }
+        .report-table th { font-weight: 600; color: #374151; border-bottom: 2px solid #d1d5db; }
+        .report-table td, .report-table tbody th { border-bottom: 1px solid #e5e7eb; }
+        .report-table tbody th { font-weight: 500; color: #1f2937; }
+        .report-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+        @page { size: A4; margin: 16mm 14mm; }
+
+        @media print {
+            .no-print { display: none !important; }
+            body { background: #fff !important; padding: 0 !important; font-size: 11pt; }
+            main { padding: 0 !important; }
+            .report-sheet { max-width: none; box-shadow: none !important; border: 0 !important; padding: 0 !important; margin: 0 !important; }
+            section, tr { break-inside: avoid; }
+            h2 { break-after: avoid; }
+            a { text-decoration: none; color: inherit; }
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<body class="font-poppins bg-gray-100 min-h-screen">
+    <div class="no-print">
+        {% call ui.site_header(active="progress", subtitle="INFORME") %}{% endcall %}
+    </div>
+
+    {% set s = report.summary %}
+    {% set p = report.patient %}
+    <main class="container mx-auto px-4 py-8 pt-24 md:pt-28">
+        <!-- Barra de acciones (no se imprime) -->
+        <div class="no-print report-sheet mx-auto mb-6 flex flex-wrap items-center justify-between gap-4">
+            <nav class="flex flex-wrap gap-2" aria-label="Periodo del informe">
+                {% for value, label in periods.items() %}
+                <a href="/report?days={{ value }}" {% if value == report.days %}aria-current="page"{% endif %}
+                    class="min-h-[48px] px-4 py-3 rounded-xl font-semibold border-2 {{ 'bg-primary border-primary text-white' if value == report.days else 'bg-white border-gray-200 text-gray-800 hover:border-primary' }}">{{ label }}</a>
+                {% endfor %}
+            </nav>
+            <div class="flex gap-3">
+                <a href="/progress"
+                    class="min-h-[48px] px-5 py-3 rounded-xl font-semibold bg-white border-2 border-gray-200 text-gray-800 hover:border-primary">Volver</a>
+                <button type="button" onclick="window.print()"
+                    class="min-h-[48px] px-5 py-3 rounded-xl font-semibold bg-primary text-white hover:bg-indigo-700 flex items-center gap-2">
+                    <i class="fas fa-download" aria-hidden="true"></i> Imprimir o guardar PDF
+                </button>
+            </div>
+        </div>
+
+        <article class="report-sheet mx-auto bg-white rounded-2xl shadow-lg border border-gray-200 p-6 md:p-10 text-gray-800">
+            <header class="border-b-2 border-gray-300 pb-5 mb-6">
+                <p class="text-sm font-semibold tracking-wide text-indigo-700 uppercase">Rehab Voice · Rehabilitación del habla</p>
+                <h1 class="text-3xl font-bold text-gray-900 mt-1">Informe de progreso</h1>
+                <p class="text-gray-700 mt-2">
+                    {{ periods[report.days] }}{% if report.first_attempt %} · práctica del {{ fecha(report.first_attempt) }} al {{ fecha(report.last_attempt) }}{% endif %}
+                </p>
+            </header>
+
+            <section class="mb-8" aria-labelledby="r-paciente">
+                <h2 id="r-paciente" class="text-lg font-bold text-gray-900 mb-3">Paciente</h2>
+                <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2">
+                    <div class="flex gap-2"><dt class="shrink-0 font-semibold text-gray-700">Nombre:</dt><dd>{{ p.name }}</dd></div>
+                    {% if p.age is not none %}<div class="flex gap-2"><dt class="shrink-0 font-semibold text-gray-700">Edad:</dt><dd>{{ p.age }} años</dd></div>{% endif %}
+                    {% if p.diagnosis %}<div class="flex gap-2"><dt class="shrink-0 font-semibold text-gray-700">Diagnóstico:</dt><dd>{{ p.diagnosis }}</dd></div>{% endif %}
+                    {% if speech_profile.disorder %}<div class="flex gap-2"><dt class="shrink-0 font-semibold text-gray-700">Perfil de voz:</dt><dd>{{ speech_profile.disorder }}{% if speech_profile.severity %} ({{ speech_profile.severity }}){% endif %}</dd></div>{% endif %}
+                    <div class="flex gap-2"><dt class="shrink-0 font-semibold text-gray-700">Terapeuta:</dt><dd>{{ session.therapist_name if session else (p.therapist or '') }}</dd></div>
+                    <div class="flex gap-2"><dt class="shrink-0 font-semibold text-gray-700">Fecha del informe:</dt><dd>{{ fecha(report.generated_at) }}</dd></div>
+                </dl>
+                {% if p.notes %}
+                <p class="mt-3"><span class="font-semibold text-gray-700">Notas de la ficha:</span> {{ p.notes }}</p>
+                {% endif %}
+            </section>
+
+            {% if not s.attempts %}
+            <p class="rounded-xl bg-gray-100 px-5 py-6 text-center text-gray-800">
+                No hay intentos de práctica en este periodo.{% if report.days %} Prueba con un periodo más largo.{% endif %}
+            </p>
+            {% else %}
+
+            <section class="mb-8" aria-labelledby="r-resumen">
+                <h2 id="r-resumen" class="text-lg font-bold text-gray-900 mb-3">Resumen</h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="rounded-xl border border-gray-300 px-4 py-3">
+                        <div class="text-2xl font-bold text-gray-900">{{ s.days }}</div>
+                        <div class="text-sm text-gray-700">{{ "día" if s.days == 1 else "días" }} de práctica</div>
+                    </div>
+                    <div class="rounded-xl border border-gray-300 px-4 py-3">
+                        <div class="text-2xl font-bold text-gray-900">{{ s.attempts }}</div>
+                        <div class="text-sm text-gray-700">{{ "intento" if s.attempts == 1 else "intentos" }} · {{ s.words }} {{ "palabra distinta" if s.words == 1 else "palabras distintas" }}</div>
+                    </div>
+                    <div class="rounded-xl border border-gray-300 px-4 py-3">
+                        <div class="text-2xl font-bold text-gray-900">{{ s.correct_rate }}%</div>
+                        <div class="text-sm text-gray-700">correctos ({{ s.correct }} de {{ s.attempts }})</div>
+                    </div>
+                    <div class="rounded-xl border border-gray-300 px-4 py-3">
+                        <div class="text-2xl font-bold text-gray-900">{{ s.avg_score }}%</div>
+                        <div class="text-sm text-gray-700">nota media</div>
+                    </div>
+                </div>
+                <p class="text-sm text-gray-700 mt-3">
+                    Un intento cuenta como correcto si así lo valoró el terapeuta o, si no hay valoración, si superó el
+                    umbral de su nivel.
+                    {% if report.therapist.rated %}
+                    El terapeuta valoró {{ intentos(report.therapist.rated) }}{% if report.therapist.overridden %} y en {{ report.therapist.overridden }} corrigió la valoración automática{% endif %}.
+                    {% endif %}
+                </p>
+            </section>
+
+            <section class="mb-8" aria-labelledby="r-evolucion">
+                <h2 id="r-evolucion" class="text-lg font-bold text-gray-900 mb-3">Evolución por {{ report.evolution_unit }}</h2>
+                {% if report.evolution | length >= 2 %}
+                {% set a = report.evolution[0] %}{% set b = report.evolution[-1] %}
+                <p class="mb-3">
+                    Correctos: del <strong>{{ a.correct_rate }}%</strong> al <strong>{{ b.correct_rate }}%</strong>
+                    ({% if b.correct_rate > a.correct_rate %}sube {{ b.correct_rate - a.correct_rate }} puntos{% elif b.correct_rate < a.correct_rate %}baja {{ a.correct_rate - b.correct_rate }} puntos{% else %}se mantiene{% endif %}
+                    entre {{ "el primer mes y el último" if report.evolution_unit == "mes" else "la primera semana y la última" }}).
+                </p>
+                {% endif %}
+                <table class="report-table w-full">
+                    <thead>
+                        <tr>
+                            <th scope="col">{{ "Mes" if report.evolution_unit == "mes" else "Semana del" }}</th>
+                            <th scope="col" class="num hidden sm:table-cell print:table-cell">Días</th>
+                            <th scope="col" class="num">Intentos</th>
+                            <th scope="col" class="w-2/5 sm:w-1/3">Correctos</th>
+                            <th scope="col" class="num hidden sm:table-cell print:table-cell">Nota media</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in report.evolution %}
+                        <tr>
+                            <th scope="row" class="whitespace-nowrap">
+                                {%- if report.evolution_unit == "mes" %}{{ MESES[row.start.month - 1] }} {{ row.start.year }}{% else %}{{ fecha_corta(row.start) }}{% endif -%}
+                            </th>
+                            <td class="num hidden sm:table-cell print:table-cell">{{ row.days }}</td>
+                            <td class="num">{{ row.attempts }}</td>
+                            <td>{{ barra(row.correct_rate) }}</td>
+                            <td class="num hidden sm:table-cell print:table-cell">{{ row.avg_score }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </section>
+
+            {% if report.categories %}
+            <section class="mb-8" aria-labelledby="r-categorias">
+                <h2 id="r-categorias" class="text-lg font-bold text-gray-900 mb-3">Por categoría</h2>
+                <table class="report-table w-full">
+                    <thead>
+                        <tr>
+                            <th scope="col">Categoría</th>
+                            <th scope="col" class="num hidden sm:table-cell print:table-cell">Palabras</th>
+                            <th scope="col" class="num">Intentos</th>
+                            <th scope="col" class="w-2/5 sm:w-1/3">Correctos</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in report.categories %}
+                        <tr>
+                            <th scope="row">{{ c.name }}</th>
+                            <td class="num hidden sm:table-cell print:table-cell">{{ c.words }}</td>
+                            <td class="num">{{ c.attempts }}</td>
+                            <td>{{ barra(c.correct_rate) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </section>
+            {% endif %}
+
+            <section class="mb-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <h2 class="text-lg font-bold text-gray-900 mb-3">Palabras que más cuestan</h2>
+                    {% if report.difficult %}
+                    <ul class="space-y-2">
+                        {% for w in report.difficult %}
+                        <li class="flex justify-between gap-4 border-b border-gray-200 pb-2">
+                            <span class="font-medium">{{ w.word }}</span>
+                            <span class="text-gray-700 whitespace-nowrap">{{ w.correct_rate }}% · {{ intentos(w.attempts) }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-gray-700">Ninguna palabra con menos de la mitad de aciertos.</p>
+                    {% endif %}
+                </div>
+                <div>
+                    <h2 class="text-lg font-bold text-gray-900 mb-3">Palabras que domina</h2>
+                    {% if report.mastered %}
+                    <ul class="space-y-2">
+                        {% for w in report.mastered %}
+                        <li class="flex justify-between gap-4 border-b border-gray-200 pb-2">
+                            <span class="font-medium">{{ w.word }}</span>
+                            <span class="text-gray-700 whitespace-nowrap">{{ w.correct_rate }}% · {{ intentos(w.attempts) }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-gray-700">Todavía ninguna con el 80 % de aciertos en dos intentos o más.</p>
+                    {% endif %}
+                </div>
+            </section>
+            {% endif %}
+
+            <section aria-labelledby="r-observaciones">
+                <h2 id="r-observaciones" class="text-lg font-bold text-gray-900 mb-3">Observaciones del terapeuta</h2>
+                <!-- En pantalla se puede escribir antes de imprimir (no se guarda); en papel quedan las líneas -->
+                <label for="observaciones" class="visually-hidden">Observaciones (se imprimen; no se guardan)</label>
+                <textarea id="observaciones" rows="4" placeholder="Escribe aquí antes de imprimir (no se guarda)…"
+                    class="no-print w-full rounded-xl border-2 border-gray-300 px-4 py-3 text-gray-900 focus:border-primary focus:outline-none"></textarea>
+                <p id="observaciones-print" class="hidden print:block whitespace-pre-wrap min-h-[6rem] border-b border-gray-400 pb-2"></p>
+                <div class="mt-12 flex justify-end">
+                    <div class="w-64 border-t border-gray-500 pt-2 text-center text-sm text-gray-700">Firma del terapeuta</div>
+                </div>
+            </section>
+        </article>
+    </main>
+
+    <script>
+        // Lo escrito en «Observaciones» pasa al papel (un textarea se imprime cortado)
+        const obs = document.getElementById('observaciones');
+        const copyNotes = () => { document.getElementById('observaciones-print').textContent = obs.value; };
+        obs.addEventListener('input', copyNotes);
+        window.addEventListener('beforeprint', copyNotes);
+    </script>
+</body>
+{% endblock %}

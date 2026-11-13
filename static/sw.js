@@ -2,7 +2,8 @@
 //
 // - Al instalarse guarda la página del comunicador, sus recursos (CSS, fuentes, iconos),
 //   la configuración de pictogramas y todas sus imágenes.
-// - Página y configuración: primero la red (datos al día); sin red, la copia guardada.
+// - Página, configuración y tablero a medida del paciente: primero la red (datos al día); sin red,
+//   la copia guardada.
 // - Estáticos con hash (?v=... o nombre.<hash>.ext): primero la caché (nunca cambian).
 // - Otros estáticos (pictogramas): caché inmediata y actualización en segundo plano.
 // - Voz (/api/speak): primero la red; cada frase dicha se guarda para poder repetirla sin red.
@@ -15,9 +16,12 @@
 /** En este archivo, `self` es el ámbito del service worker. */
 const sw = /** @type {ServiceWorkerGlobalScope} */ (/** @type {unknown} */ (self));
 
-const CACHE = 'rehab-comunicador-v3';
+// v4: pictogramas de licencia libre (la copia anterior, con los de ARASAAC, se descarta)
+const CACHE = 'rehab-comunicador-v4';
 const SHELL_PAGE = '/communicator';
 const CONFIG_URL = '/api/aac/config';
+// Tablero a medida del paciente activo (pictogramas ocultos y frases propias)
+const PROFILE_URL = '/api/aac/profile';
 const NETWORK_TIMEOUT_MS = 4000;
 const SPEECH_TIMEOUT_MS = 12000;   // la primera síntesis de una frase puede tardar varios segundos
 const SYNC_FETCH_TIMEOUT_MS = 20000; // cada descarga de la copia sin conexión
@@ -105,6 +109,9 @@ async function syncOfflineNow() {
         }
     }
 
+    const profile = await fetchWithTimeout(PROFILE_URL, { cache: 'no-store' });
+    if (profile.ok && !profile.redirected) await store(cache, PROFILE_URL, profile);
+
     // La fuente de iconos se referencia desde su CSS (solo existe la versión woff2)
     for (const url of [...urls]) {
         if (url.includes('fontawesome.subset.css')) {
@@ -163,7 +170,7 @@ sw.addEventListener('fetch', (event) => {
     const url = new URL(request.url);
     if (url.origin !== sw.location.origin) return;
 
-    if (url.pathname === SHELL_PAGE || url.pathname === CONFIG_URL) {
+    if (url.pathname === SHELL_PAGE || url.pathname === CONFIG_URL || url.pathname === PROFILE_URL) {
         event.respondWith(networkFirst(request, url.pathname));
     } else if (url.pathname.startsWith('/api/speak/')) {
         event.respondWith(speech(event, url));

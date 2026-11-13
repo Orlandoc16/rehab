@@ -1,0 +1,105 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Lo pesado que no está en git (whisper.cpp, modelos, sherpa-onnx, voz):
+//   python tools/fetch_android_deps.py
+def thirdParty = file('../third_party')
+if (!file("${thirdParty}/app_assets/models").exists()) {
+    throw new GradleException('Faltan dependencias nativas: ejecuta  python tools/fetch_android_deps.py')
+}
+
+android {
+    namespace = 'org.rehabvoice.app'
+    compileSdk = 36
+    ndkVersion = '27.1.12297006'
+
+    defaultConfig {
+        applicationId = 'org.rehabvoice.app'
+        minSdk = 26
+        targetSdk = 36
+        versionCode = 2
+        versionName = '2.0'
+        externalNativeBuild {
+            cmake {
+                arguments '-DANDROID_STL=c++_shared', '-DCMAKE_BUILD_TYPE=Release'
+            }
+        }
+    }
+
+    // Firma de la versión final: android/keystore.properties + android/release.jks (fuera de git).
+    // ¡Guarda una copia de los dos! Sin ellos no se pueden publicar actualizaciones de la app.
+    def keystoreFile = rootProject.file('keystore.properties')
+    signingConfigs {
+        if (keystoreFile.exists()) {
+            release {
+                def p = new Properties()
+                keystoreFile.withInputStream { p.load(it) }
+                storeFile = rootProject.file(p['storeFile'])
+                storePassword = p['storePassword']
+                keyAlias = p['keyAlias']
+                keyPassword = p['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            // Tablets (arm64) y emulador/BlueStacks (x86_64)
+            ndk { abiFilters 'arm64-v8a', 'x86_64' }
+        }
+        release {
+            minifyEnabled = false
+            // Solo tablets: más pequeña
+            ndk { abiFilters 'arm64-v8a' }
+            if (keystoreFile.exists()) signingConfig = signingConfigs.release
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file('src/main/cpp/CMakeLists.txt')
+            version = '3.22.1'
+        }
+    }
+
+    sourceSets {
+        main {
+            assets.srcDirs += ["${thirdParty}/app_assets"]
+            jniLibs.srcDirs += ["${thirdParty}/sherpa-onnx/jniLibs"]
+            kotlin.srcDirs += ["${thirdParty}/sherpa-onnx/kotlin"]
+        }
+    }
+
+    packaging {
+        jniLibs {
+            // Solo hacen falta libsherpa-onnx-jni y libonnxruntime (ver su README)
+            excludes += ['**/libsherpa-onnx-c-api.so', '**/libsherpa-onnx-cxx-api.so']
+            useLegacyPackaging = false
+        }
+        resources {
+            excludes += ['**/README.md']
+        }
+    }
+
+    androidResources {
+        // Modelos: sin comprimir (apenas se comprimen y así se copian más rápido)
+        noCompress += ['bin', 'onnx']
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+// Páginas de la app (assets/www): se regeneran desde templates/ y static/ en cada compilación
+def repoRoot = file('../..')
+def venvPython = new File(repoRoot, 'venv/Scripts/python.exe')
+tasks.register('buildWebAssets', Exec) {
+    workingDir = repoRoot
+    commandLine = [venvPython.exists() ? venvPython.path : 'python', 'tools/build_android_web.py']
+    environment 'PYTHONIOENCODING', 'utf-8'
+    environment 'STT_ENGINE', 'none'
+}
+tasks.named('preBuild') { dependsOn 'buildWebAssets' }

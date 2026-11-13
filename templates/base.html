@@ -6,8 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ title }}{% endblock %}</title>
     <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+    {%- if app_mode %}
+    <!-- App Android sin servidor: las rutas /api/... las responde el «servidor local» (antes que
+         cualquier otro script, para que sus fetch ya vayan a él). Ver tools/build_android_web.py -->
+    <script src="{{ asset('js/scoring.js') }}"></script>
+    <script src="{{ asset('js/syllables.js') }}"></script>
+    <script src="{{ asset('js/app/local-api.js') }}"></script>
+    <script src="{{ asset('js/app/bridge.js') }}"></script>
+    {%- else %}
     <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">
     <link rel="apple-touch-icon" href="{{ asset('icons/icon-180.png') }}">
+    {%- endif %}
     <meta name="theme-color" content="#6366f1">
 
     <!-- Fuente Poppins servida localmente (static/fonts) -->
@@ -20,8 +29,10 @@
     <script src="{{ asset('js/nav.js') }}" defer></script>
     <!-- Voz: la del servidor y, si no está disponible, la del dispositivo -->
     <script src="{{ asset('js/voice.js') }}" defer></script>
-    <!-- Modo sin conexión del comunicador -->
+    {%- if not app_mode %}
+    <!-- Modo sin conexión del comunicador (en la app todo es local: no hace falta) -->
     <script src="{{ asset('js/sw-register.js') }}" defer></script>
+    {%- endif %}
     <!-- Lupa de lectura: amplía el texto bajo el ratón (baja visión) -->
     <script src="{{ asset('js/magnifier.js') }}" defer></script>
 

@@ -1,9 +1,9 @@
 """Palabras, categorías, repetición espaciada, comunicador (AAC) y configuración."""
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
-from ..schemas import PatientCreate, WordCreate
+from ..schemas import AacProfile, PatientCreate, WordCreate
 from ..security import current_patient
 from ..services import db, voice_processor
 from .speech import generate_tts_cache
@@ -74,10 +74,33 @@ def get_difficult_words(patient_id: str, request: Request, limit: int = 10):
     }
 
 
+@router.get("/words/review/{patient_id}")
+def get_review_words(patient_id: str, request: Request, background_tasks: BackgroundTasks, limit: int = 20):
+    """Palabras que el paciente activo falla, para una sesión de repaso (de cualquier categoría)."""
+    patient_id = current_patient(request)
+    words = db.get_review_words(patient_id, limit)
+    background_tasks.add_task(generate_tts_cache, words)
+    return {"words": words, "patient_id": patient_id, "count": len(words)}
+
+
 @router.get("/aac/config")
 def get_aac_config():
     """Obtiene configuración completa del tablero AAC"""
     return db.get_aac_config()
+
+
+@router.get("/aac/profile")
+def get_aac_profile(request: Request):
+    """Comunicador a medida del paciente activo: pictogramas ocultos y frases propias."""
+    return db.get_aac_profile(current_patient(request))
+
+
+@router.post("/aac/profile")
+def set_aac_profile(profile: AacProfile, request: Request):
+    saved = db.set_aac_profile(current_patient(request), profile.model_dump())
+    if saved is None:
+        raise HTTPException(status_code=404, detail="Paciente no encontrado")
+    return saved
 
 
 @router.get("/config")

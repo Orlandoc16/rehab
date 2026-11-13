@@ -23,6 +23,31 @@ Una aplicación web moderna para ayudar a personas en rehabilitación vocal a pr
 - **9 categorías**: Necesidades básicas, comida, emociones, familia, etc.
 - **+200 palabras/frases** preconfiguradas en español
 
+### 💬 Comunicador y práctica (mejoras traídas de la app móvil)
+- **Barra rápida Sí / No / ¡Ayuda!** siempre a la vista; «¡Ayuda!» se dice al momento
+- **Recientes**: las últimas frases dichas se repiten con un toque (se guardan en el equipo, por paciente)
+- **Tablet u ordenador en horizontal**: el tablero a la izquierda y la frase a la derecha
+- **Pista «Por sílabas»** en la práctica («ca, mi, nar», muy despacio) además de «Escuchar»
+- **Veredicto claro** «Bien / Casi / Otra vez», y la velocidad de la voz modelo se recuerda por paciente
+- **Progreso según la valoración del terapeuta**: porcentaje de correctos, barras diarias de
+  correctos y por mejorar, e intentos marcados como «valorado por el terapeuta»
+- La pantalla no se apaga durante la práctica y la voz modelo se calla al empezar a grabar
+- **Ficha del paciente** (en *Pacientes* → «Editar ficha»): cambiar nombre, edad, diagnóstico y
+  notas, o borrar al paciente con todo su progreso (pide confirmación; no se puede deshacer)
+
+### 🧑‍⚕️ Para el trabajo diario del terapeuta
+- **Informe para imprimir** (en *Progreso* → «Informe para imprimir», o `/report`): una hoja por
+  paciente con el resumen del periodo (7 días, 30 días, 3 meses o todo), la evolución por semanas,
+  las categorías, las palabras que más cuestan y las que domina, y un hueco para observaciones y
+  firma. Se imprime o se guarda como PDF desde el navegador (solo en la web, no en la app Android).
+- **Repaso de palabras difíciles** (en *Practicar*, primera opción del selector, o desde
+  *Progreso*): una sesión con las palabras que el paciente falla, de cualquier categoría. Entra una
+  palabra si acierta menos del 60 % de sus intentos o si falló la última vez; cada una se evalúa
+  con su propio nivel.
+- **Comunicador a medida de cada paciente** (en *Comunicador* → ⚙ → «Personalizar el tablero»):
+  frases propias que se dicen con un toque (pestaña «Mis frases») y pictogramas que se ocultan si
+  ese paciente no los usa. Se guarda en su ficha (`/api/aac/profile`) y funciona sin conexión.
+
 ### 🎮 Gamificación
 - **Sistema de puntos** por cada intento
 - **15+ logros** desbloqueables
@@ -268,21 +293,18 @@ tar -xzf fortawesome-fontawesome-free-6.5.0.tgz
 python tools/build_icons.py --fa-dir package --db data/rehab_voice.db
 ```
 
-### Pictogramas (ARASAAC)
+### Pictogramas (licencia libre)
 
-Todas las ilustraciones del comunicador son de ARASAAC (`static/pictograms/arasaac/`).
-Cada pictograma se asigna en `PICTOGRAM_IMAGES` (`database.py`); al arrancar, la app
-actualiza las bases de datos existentes. Los conceptos que ARASAAC solo tiene en blanco y
-negro (Hijo, Hija, Nieto, Nieta, Esposo, Esposa, Vecino, Acomodarme) se **componen a color**
-con piezas de ARASAAC y un círculo rojo que marca a la persona:
+Las ilustraciones son las mismas que usa la app móvil (`static/pictograms/libre/`): Mulberry
+Symbols y OpenMoji (CC BY-SA 4.0) y algunos dibujos propios. **Se pueden usar con fines
+comerciales** manteniendo la atribución, que aparece al pie del comunicador, la práctica y los
+juegos; qué símbolo es cada archivo está en `static/pictograms/libre/ATRIBUCION.md`. Antes eran
+de ARASAAC, cuya licencia (CC BY-NC-SA) no permite el uso comercial.
 
-```bash
-pip install -r requirements-dev.txt
-python tools/compose_pictograms.py          # todos
-python tools/compose_pictograms.py hijo     # solo uno
-```
-
-Para añadir otro, define su composición en `COMPOSITIONS` dentro del script.
+Cada pictograma se asigna en `PICTOGRAM_IMAGES` (`database.py`); al arrancar, la app actualiza
+las bases de datos existentes. Las imágenes se generan en el proyecto de la app móvil
+(`npm run pictograms`, a partir de `scripts/pictograms/map.json`): para cambiar o añadir una,
+genérala allí y copia el `.webp` a `static/pictograms/libre/`.
 
 Las **palabras de práctica** también tienen su pictograma (`word_images.py`, clave
 `categoría/palabra`). Si la palabra es el mismo concepto que un pictograma del comunicador, usa
@@ -504,10 +526,10 @@ Proyecto de rehabilitación vocal con IA - 2025
 
 ## Créditos y licencias
 
-- **Pictogramas del comunicador:** todas las ilustraciones son de **ARASAAC** (estilo uniforme). Autor: Sergio Palao.
-  Origen: [ARASAAC](https://arasaac.org). Licencia:
-  [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.es).
-  Propiedad: Gobierno de Aragón (España). **Solo uso no comercial**; la atribución aparece
-  al pie del comunicador. Detalles en `static/pictograms/arasaac/LICENSE.txt`.
+- **Pictogramas:** [Mulberry Symbols](https://mulberrysymbols.org) (© Steve Lee) y
+  [OpenMoji](https://openmoji.org), ambos con licencia
+  [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.es), y algunos dibujos propios.
+  Permiten el uso comercial manteniendo la atribución y compartiendo las imágenes (no el código)
+  con la misma licencia. Detalles en `static/pictograms/libre/ATRIBUCION.md`.
 - **Iconos:** Font Awesome Free 6.5 (iconos CC BY 4.0, fuente SIL OFL 1.1, código MIT).
 - **Fuente:** Poppins (SIL Open Font License 1.1).

@@ -2,6 +2,16 @@
    Uso:
      {% call ui.site_header(active="practice", subtitle="PRÁCTICA") %} ...botones a la derecha... {% endcall %}
 #}
+{# Atribución de los pictogramas (obligatoria por su licencia CC BY-SA 4.0): va en las páginas que
+   los muestran. Uso: {{ ui.pictogram_credits("pb-20") }} #}
+{% macro pictogram_credits(extra_class="") -%}
+<p class="text-xs text-gray-600 text-center {{ extra_class }}">
+    Pictogramas: <a href="https://mulberrysymbols.org" target="_blank" rel="noopener" class="underline">Mulberry Symbols</a> (© Steve Lee)
+    y <a href="https://openmoji.org" target="_blank" rel="noopener" class="underline">OpenMoji</a>
+    · Licencia <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.es" target="_blank" rel="noopener" class="underline">CC BY-SA 4.0</a>
+</p>
+{%- endmacro %}
+
 {% set NAV = [
     ("/", "home", "Inicio", "fa-home"),
     ("/practice", "practice", "Practicar", "fa-microphone"),
@@ -37,12 +47,15 @@
 
                 <!-- Right side & Mobile Toggle -->
                 <div class="flex items-center gap-3">
-                    {%- if session and session.patient_name %}
+                    {%- if app_mode or (session and session.patient_name) %}
                     <a href="/patients" title="Cambiar de paciente"
                         class="hidden lg:flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full bg-indigo-50 text-indigo-700 text-sm font-medium hover:bg-indigo-100 transition-colors">
                         <span class="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center"><i class="fas fa-user text-xs"></i></span>
-                        <span class="max-w-[10rem] truncate">{{ session.patient_name }}</span>
+                        {#- En la app el nombre lo pone bridge.js (no hay sesión de servidor) #}
+                        <span class="max-w-[10rem] truncate" data-app-patient-name>{{ session.patient_name if session else '' }}</span>
                     </a>
+                    {%- endif %}
+                    {%- if session and session.patient_name and not app_mode %}
                     <form method="post" action="/logout" class="hidden lg:block">
                         <button type="submit" title="Cerrar sesión" aria-label="Cerrar sesión"
                             class="w-12 h-12 rounded-xl bg-white border border-gray-100 shadow-sm flex items-center justify-center text-gray-600 hover:text-primary transition-colors">
@@ -74,19 +87,21 @@
                     {{ label }}
                 </a>
                 {%- endfor %}
-                {%- if session and session.patient_name %}
+                {%- if app_mode or (session and session.patient_name) %}
                 <div class="border-t border-gray-100 pt-4 mt-1 flex flex-col sm:flex-row sm:items-center gap-3">
                     <a href="/patients" class="flex-1 min-w-0 flex items-center p-3 rounded-xl bg-indigo-50 text-indigo-700 font-medium">
                         <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3"><i class="fas fa-user"></i></div>
-                        <span class="truncate">{{ session.patient_name }}</span>
+                        <span class="truncate" data-app-patient-name>{{ session.patient_name if session else '' }}</span>
                         <span class="ml-auto pl-2 shrink-0 text-sm text-indigo-700">Cambiar</span>
                     </a>
+                    {%- if not app_mode %}
                     <form method="post" action="/logout">
                         <button type="submit" aria-label="Cerrar sesión"
                             class="w-full sm:w-auto min-h-[48px] p-3 rounded-xl text-gray-700 bg-gray-50 hover:bg-gray-100 font-medium flex items-center justify-center gap-2">
                             <i class="fas fa-right-from-bracket"></i> Salir
                         </button>
                     </form>
+                    {%- endif %}
                 </div>
                 {%- endif %}
             </div>

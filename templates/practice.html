@@ -3,6 +3,10 @@
 
 {% block head %}
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
+    {%- if not app_mode %}
+    <!-- Separación en sílabas para la pista «Por sílabas» (en la app ya lo carga base.html) -->
+    <script src="{{ asset('js/syllables.js') }}"></script>
+    {%- endif %}
 
     <style>
         .recording {
@@ -93,7 +97,7 @@
             </select>
 
             <label for="speed-select" class="visually-hidden">Velocidad de la voz</label>
-            <select id="speed-select" class="w-full lg:w-auto min-h-[56px] text-base sm:text-lg bg-white border-2 border-gray-200 rounded-xl px-3 sm:px-4 py-3 font-medium focus:border-primary focus:outline-none">
+            <select id="speed-select" onchange="saveVoiceSpeed()" class="w-full lg:w-auto min-h-[56px] text-base sm:text-lg bg-white border-2 border-gray-200 rounded-xl px-3 sm:px-4 py-3 font-medium focus:border-primary focus:outline-none">
                 <option value="lenta" selected>🐢 Voz lenta</option>
                 <option value="normal">Voz normal</option>
             </select>
@@ -118,7 +122,7 @@
                 <!-- Current Word Display -->
                 <div class="bg-white rounded-2xl shadow-lg p-5 md:p-8 mb-6 text-center">
                     <p class="text-gray-600 mb-2">Palabra a practicar:</p>
-                    <!-- Pictograma de ARASAAC de la palabra (si tiene) -->
+                    <!-- Pictograma de la palabra (si tiene) -->
                     <img id="word-image" alt="" width="160" height="160" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="
                         class="hidden mx-auto w-24 h-24 md:w-40 md:h-40 object-contain mb-3 md:mb-4 rounded-xl">
                     <h2 id="current-word" class="text-4xl md:text-5xl font-bold text-gray-800 mb-3 md:mb-4">
@@ -126,12 +130,19 @@
                     </h2>
                     <p id="phonetic-hint" class="text-xl text-gray-600 mb-4 md:mb-6"></p>
 
-                    <!-- Listen Button -->
-                    <button aria-label="Escuchar la palabra" onclick="playTargetWord()" id="listen-btn"
-                        class="bg-blue-100 text-blue-800 px-6 py-3 min-h-[48px] rounded-xl font-semibold hover:bg-blue-200 transition mb-4 md:mb-6 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
-                        disabled>
-                        <i class="fas fa-volume-up mr-2"></i>Escuchar pronunciación
-                    </button>
+                    <!-- Dos ayudas, de menos a más: la palabra entera y, si cuesta, sílaba a sílaba -->
+                    <div class="flex flex-wrap justify-center gap-3 mb-4 md:mb-6">
+                        <button aria-label="Escuchar la palabra" onclick="playTargetWord()" id="listen-btn"
+                            class="bg-blue-100 text-blue-800 px-6 py-3 min-h-[48px] rounded-xl font-semibold hover:bg-blue-200 transition disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                            disabled>
+                            <i class="fas fa-volume-up mr-2" aria-hidden="true"></i>Escuchar
+                        </button>
+                        <button aria-label="Escuchar la palabra sílaba a sílaba" onclick="playSyllables()" id="syllables-btn"
+                            class="bg-blue-100 text-blue-800 px-6 py-3 min-h-[48px] rounded-xl font-semibold hover:bg-blue-200 transition disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                            disabled>
+                            <span class="mr-2" aria-hidden="true">🐢</span>Por sílabas
+                        </button>
+                    </div>
 
                     <!-- Record Button: el estado se ve por el color, el icono Y el texto (no solo por
                          una animación, que desaparece con «reducir movimiento») -->
@@ -261,6 +272,9 @@
 
                         <!-- Feedback Content -->
                         <div class="flex-1 w-full">
+                            <!-- Veredicto en una palabra (Bien / Casi / Otra vez): se entiende de un
+                                 vistazo sin leer el porcentaje. Sigue a la valoración del terapeuta. -->
+                            <p id="feedback-verdict" class="inline-flex items-center gap-2 px-4 py-1.5 mb-2 rounded-full border-2 text-2xl font-extrabold"></p>
                             <h4 id="feedback-message" class="text-xl font-bold text-gray-800 mb-2"></h4>
                             <p id="feedback-transcription" class="text-gray-600 mb-3"></p>
                             <p id="feedback-encouragement" class="text-gray-500 mb-4"></p>
@@ -323,6 +337,7 @@
                 </div>
             </div>
         </div>
+        {{ ui.pictogram_credits("mt-8") }}
     </main>
 
     <!-- Audio Player (hidden) -->
@@ -341,6 +356,7 @@
         let currentLevel = 1;
         let intentosRecientes = [];
         const PATIENT_ID = 'default';
+        const REVIEW = '__repaso';   // valor del selector de categoría para la sesión de repaso
         const ANALYSIS_TIMEOUT_MS = 30000;
         let recordingStartedAt = 0;
         const attemptsByWord = {};
@@ -389,7 +405,7 @@
         }
 
         // ---- Ajustes de voz del paciente (trastorno, tiempos de grabación, exigencia) ----
-        let profile = { disorder: '', severity: '', max_recording_s: 12, pause_s: 1.8, tolerance: 0 };
+        let profile = { disorder: '', severity: '', max_recording_s: 12, pause_s: 1.8, tolerance: 0, slow_voice: true };
         const DISORDER_NAMES = { afasia: 'Afasia', disartria: 'Disartria', apraxia: 'Apraxia del habla', mixto: 'Mixto', otro: 'Otro' };
         const TOLERANCE_NAMES = { '-10': 'mucho más tolerante', '-5': 'más tolerante', '0': 'normal', '5': 'más exigente' };
         // Valores que se sugieren al elegir el trastorno (el terapeuta puede cambiarlos)
@@ -412,6 +428,19 @@
             parts.push('grabación hasta ' + profile.max_recording_s + ' s', 'pausa ' + String(profile.pause_s).replace('.', ',') + ' s');
             if (profile.tolerance) parts.push('puntuación ' + (TOLERANCE_NAMES[String(profile.tolerance)] || profile.tolerance));
             document.getElementById('profile-summary').textContent = parts.join(' · ');
+            // La velocidad de la voz modelo se recuerda por paciente (como en la app móvil)
+            document.getElementById('speed-select').value = profile.slow_voice ? 'lenta' : 'normal';
+        }
+
+        async function saveVoiceSpeed() {
+            const slow = document.getElementById('speed-select').value === 'lenta';
+            profile.slow_voice = slow;
+            if (currentWord) preloadAudio(currentWord.word);
+            try {
+                await fetch('/api/speech-settings', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slow_voice: slow }),
+                });
+            } catch (e) { /* sin red: vale para esta sesión */ }
         }
 
         /** Valor de un select; si el guardado no está entre las opciones, se añade */
@@ -552,6 +581,7 @@
             const category = params.get('category');
             const select = document.getElementById('category-select');
             if (category && [...select.options].some((o) => o.value === category)) select.value = category;
+            else if (select.options.length > 1) select.selectedIndex = 1;   // la primera categoría (la 0 es el repaso)
             await loadWords();
         });
 
@@ -563,6 +593,11 @@
                 const data = await res.json();
 
                 select.innerHTML = '';
+                // Repaso: las palabras que este paciente falla, de cualquier categoría y nivel
+                const review = document.createElement('option');
+                review.value = REVIEW;
+                review.textContent = '⭐ Repasar mis palabras difíciles';
+                select.appendChild(review);
                 data.categories.forEach(cat => {
                     const option = document.createElement('option');
                     option.value = cat.id;
@@ -588,8 +623,14 @@
 
         async function loadWords() {
             const category = document.getElementById('category-select').value;
-            const level = document.getElementById('level-select').value;
+            const levelSelect = document.getElementById('level-select');
+            const level = levelSelect.value;
             currentLevel = parseInt(level);
+            // En el repaso cada palabra va con su propio nivel: el selector no aplica
+            const review = category === REVIEW;
+            levelSelect.disabled = review;
+            levelSelect.classList.toggle('opacity-50', review);
+            if (review) document.getElementById('sugerencia-nivel').classList.add('hidden');
 
             if (!category) {
                 setStatus('Elige una categoría para empezar.');
@@ -601,7 +642,9 @@
                 document.getElementById('word-list').innerHTML = '<div class="p-4 text-center text-gray-700"><i class="fas fa-spinner fa-spin text-primary" aria-hidden="true"></i> Cargando…</div>';
 
                 // Repetición espaciada: primero las palabras que más le cuestan al paciente
-                const res = await fetch(`/api/words/practice/${encodeURIComponent(category)}?level=${level}&patient_id=${PATIENT_ID}&count=50`);
+                const res = await fetch(review
+                    ? `/api/words/review/${PATIENT_ID}?limit=20`
+                    : `/api/words/practice/${encodeURIComponent(category)}?level=${level}&patient_id=${PATIENT_ID}&count=50`);
                 if (!res.ok) throw new Error(res.statusText);
                 const data = await res.json();
                 words = data.words;
@@ -617,12 +660,15 @@
                     currentWord = null;
                     if (!isRecording && !isAnalyzing) setRecordUI('disabled');
                     document.getElementById('listen-btn').disabled = true;
+                    document.getElementById('syllables-btn').disabled = true;
                     document.getElementById('current-word').textContent = 'Sin palabras';
                     document.getElementById('word-image').classList.add('hidden');
                     document.getElementById('phonetic-hint').textContent = '';
-                    document.getElementById('word-list').innerHTML =
-                        '<p class="text-gray-600 text-center py-4">No hay palabras en este nivel. Prueba otro nivel u otra categoría.</p>';
-                    setStatus('No hay palabras en este nivel. Prueba otro nivel u otra categoría.');
+                    const empty = review
+                        ? 'No hay palabras para repasar: aquí aparecerán las que se fallen al practicar. Elige una categoría.'
+                        : 'No hay palabras en este nivel. Prueba otro nivel u otra categoría.';
+                    document.getElementById('word-list').innerHTML = `<p class="text-gray-600 text-center py-4">${empty}</p>`;
+                    setStatus(empty);
                 }
             } catch (e) {
                 console.error('Error:', e);
@@ -644,7 +690,7 @@
                      id="word-item-${idx}">
                     ${word.image_url ? `<img src="${word.image_url}" alt="" width="32" height="32" loading="lazy" class="inline-block w-8 h-8 object-contain mr-2 align-middle">` : ''}
                     <span class="font-medium text-gray-800">${word.word}</span>
-                    <span class="text-sm text-gray-600 ml-2">Nivel ${word.level}</span>
+                    <span class="text-sm text-gray-600 ml-2">Nivel ${word.level}${word.review_stats ? ` · ${word.review_stats.correct_rate}% correctos` : ''}</span>
                 </button>
             `).join('');
         }
@@ -652,6 +698,8 @@
         function selectWord(idx) {
             wordIndex = idx;
             currentWord = words[idx];
+            // Repaso: se evalúa con el nivel de la propia palabra
+            if (document.getElementById('category-select').value === REVIEW) currentLevel = currentWord.level || 1;
 
             document.getElementById('current-word').textContent = currentWord.word;
             const image = document.getElementById('word-image');
@@ -668,6 +716,7 @@
             setStatus('Pulsa «Grabar» y di la palabra');
             if (!isRecording && !isAnalyzing) setRecordUI('idle');
             document.getElementById('listen-btn').disabled = false;
+            document.getElementById('syllables-btn').disabled = false;
             document.getElementById('feedback-panel').classList.add('hidden');
 
             renderWordList();
@@ -679,13 +728,35 @@
         }
 
         async function playTargetWord() {
-            if (!currentWord) return;
+            if (!currentWord || isRecording) return;
             const audio = document.getElementById('audio-player');
             const speed = encodeURIComponent(document.getElementById('speed-select')?.value || 'normal');
             // Voz del servidor o, si no está disponible, la del dispositivo (static/js/voice.js)
             const used = await playVoice(audio, `/api/speak/${encodeURIComponent(currentWord.word)}?speed=${speed}`, currentWord.word);
             if (used === 'none') setStatus('No se pudo reproducir la voz. Comprueba la conexión.');
         }
+
+        // Pista de más ayuda: la palabra sílaba a sílaba, muy despacio («ca, mi, nar»)
+        async function playSyllables() {
+            if (!currentWord || isRecording) return;
+            const cue = syllableCue(currentWord.word);
+            const audio = document.getElementById('audio-player');
+            const used = await playVoice(audio, `/api/speak/${encodeURIComponent(cue)}?speed=lenta`, cue, { rate: 0.6 });
+            if (used === 'none') setStatus('No se pudo reproducir la voz. Comprueba la conexión.');
+        }
+
+        // ---- Pantalla encendida durante la práctica (tablets): si se apaga mientras el paciente
+        // piensa o habla, se corta la sesión. El navegador la suelta al salir de la página.
+        let wakeLock = null;
+        async function keepScreenOn() {
+            if (!('wakeLock' in navigator) || wakeLock || document.visibilityState !== 'visible') return;
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+                wakeLock.addEventListener('release', () => { wakeLock = null; });
+            } catch (e) { /* batería baja o no permitido: se sigue sin ello */ }
+        }
+        document.addEventListener('visibilitychange', keepScreenOn);
+        keepScreenOn();
 
         function setStatus(text) {
             document.getElementById('record-status').textContent = text;
@@ -772,6 +843,8 @@
                 return;
             }
 
+            // La voz modelo se calla: si siguiera sonando, el micrófono la grabaría como voz del paciente
+            stopVoice(document.getElementById('audio-player'));
             mediaRecorder = new MediaRecorder(stream);
             heardSpeech = false;
             // Todo lo de esta grabación se guarda aparte: la palabra, el nivel y el audio no cambian
@@ -968,7 +1041,25 @@
         // ---- Valoración del terapeuta del último intento ----
         let lastAttempt = null;   // { id: Promise<id|null>, autoCorrect, label: true|false|null }
 
+        // Veredicto en una palabra, con icono y color (no solo color)
+        const VERDICTS = {
+            good:  { text: 'Bien', icon: 'fa-check', cls: 'bg-green-50 border-green-600 text-green-800' },
+            fair:  { text: 'Casi', icon: 'fa-star', cls: 'bg-amber-50 border-amber-500 text-amber-900' },
+            retry: { text: 'Otra vez', icon: 'fa-redo', cls: 'bg-red-50 border-red-600 text-red-800' },
+        };
+
+        function renderVerdict() {
+            const el = document.getElementById('feedback-verdict');
+            if (!lastAttempt) { el.classList.add('hidden'); return; }
+            const kind = lastAttempt.label === true ? 'good' : lastAttempt.label === false ? 'retry' : lastAttempt.autoVerdict;
+            const v = VERDICTS[kind] || VERDICTS.retry;
+            el.className = 'inline-flex items-center gap-2 px-4 py-1.5 mb-2 rounded-full border-2 text-2xl font-extrabold ' + v.cls;
+            el.innerHTML = `<i class="fas ${v.icon}" aria-hidden="true"></i>${v.text}` +
+                (lastAttempt.label === null ? '' : '<span class="text-sm font-semibold">· terapeuta</span>');
+        }
+
         function renderLabelButtons() {
+            renderVerdict();
             const label = lastAttempt ? lastAttempt.label : null;
             document.getElementById('label-ok').setAttribute('aria-pressed', String(label === true));
             document.getElementById('label-no').setAttribute('aria-pressed', String(label === false));
@@ -1013,7 +1104,7 @@
             intentosRecientes.push(score);
             if (intentosRecientes.length > 5) intentosRecientes.shift();
             const sug = document.getElementById('sugerencia-nivel');
-            if (sug && intentosRecientes.length >= 3) {
+            if (sug && intentosRecientes.length >= 3 && document.getElementById('category-select').value !== REVIEW) {
                 const media = intentosRecientes.reduce((a, b) => a + b, 0) / intentosRecientes.length;
                 let msg = '';
                 if (media >= 80 && currentLevel < 5) msg = '\u00a1Vas genial! Considera subir al nivel ' + (currentLevel + 1);
@@ -1047,7 +1138,10 @@
 
             const verdict = result.is_correct ? '✅ ¡Correcto!' : level === 'fair' ? 'Casi: inténtalo otra vez' : 'Vamos a intentarlo otra vez';
             document.getElementById('record-status').textContent = verdict;
-            if (lastAttempt) lastAttempt.autoMessage = verdict;
+            if (lastAttempt) {
+                lastAttempt.autoMessage = verdict;
+                lastAttempt.autoVerdict = result.is_correct ? 'good' : level === 'fair' ? 'fair' : 'retry';
+            }
 
             document.getElementById('label-status').textContent = '';
             renderLabelButtons();

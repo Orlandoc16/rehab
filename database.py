@@ -8,7 +8,7 @@ import json
 import re
 import unicodedata
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 from pathlib import Path
 
@@ -45,6 +45,8 @@ class Patient(Base):
     cloud_speech_consent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     # Ajustes de la práctica de voz de este paciente (JSON; ver SPEECH_PROFILE_DEFAULTS)
     speech_profile: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Comunicador a medida de este paciente (JSON): pictogramas ocultos y frases propias
+    aac_profile: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, default=_utcnow, onupdate=_utcnow)
     
@@ -83,8 +85,10 @@ class Word(Base):
 
 # Ajustes de voz por paciente. max_recording_s y pause_s: cuándo se corta la grabación (las pausas
 # largas de la afasia o los bloqueos del Parkinson la cortaban a mitad de frase); tolerance: ajuste
-# del umbral de acierto (negativo = más tolerante).
-SPEECH_PROFILE_DEFAULTS = {"disorder": "", "severity": "", "max_recording_s": 12, "pause_s": 1.8, "tolerance": 0}
+# del umbral de acierto (negativo = más tolerante); slow_voice: la voz modelo de la práctica suena
+# lenta (como en la app móvil, se recuerda por paciente).
+SPEECH_PROFILE_DEFAULTS = {"disorder": "", "severity": "", "max_recording_s": 12, "pause_s": 1.8, "tolerance": 0,
+                           "slow_voice": True}
 
 GAME_PREFIX = "game_"   # los juegos se guardan en Progress con word_id "game_..."
 
@@ -230,136 +234,135 @@ def word_image_key(category_id: Optional[str], word: str) -> str:
     return f"{category_id}/{text}"
 
 
-# Ilustraciones de pictogramas: TODAS de ARASAAC, para que el tablero tenga un estilo uniforme.
-# Autor: Sergio Palao. Origen: ARASAAC (https://arasaac.org). Licencia: CC BY-NC-SA 4.0
-# (uso no comercial, con atribución). Elegidos a mano entre varios candidatos; cada archivo
-# se llama como su identificador en ARASAAC. Ver static/pictograms/arasaac/LICENSE.txt
-# Los c_*.webp son composiciones A COLOR de piezas de ARASAAC (tools/compose_pictograms.py)
-# para conceptos que ARASAAC solo tiene en blanco y negro (parentescos, vecino, acomodarme).
+# Ilustraciones de pictogramas: de LICENCIA LIBRE (se pueden usar también con fines comerciales),
+# las mismas que la app móvil: Mulberry Symbols (© Steve Lee) y OpenMoji, ambas CC BY-SA 4.0, y
+# algunos dibujos propios. Antes eran de ARASAAC (CC BY-NC-SA: solo uso no comercial).
+# Qué símbolo es cada archivo y su atribución: static/pictograms/libre/ATRIBUCION.md
 # Los pictogramas aac_* vienen del antiguo script de vocabulario: solo se aplican si existen.
+OLD_PICTOGRAM_PREFIX = "/static/pictograms/arasaac/"   # imágenes retiradas (bases de datos antiguas)
 PICTOGRAM_IMAGES = {
     # Acciones
-    "walk": "/static/pictograms/arasaac/32214.webp",  # Caminar
-    "rest": "/static/pictograms/arasaac/31937.webp",  # Descansar
-    "write": "/static/pictograms/arasaac/2380.webp",  # Escribir
-    "read": "/static/pictograms/arasaac/31680.webp",  # Leer
-    "call": "/static/pictograms/arasaac/34405.webp",  # Llamar
-    "listen": "/static/pictograms/arasaac/29718.webp",  # Música
-    "paint": "/static/pictograms/arasaac/5574.webp",  # Pintar
-    "pray": "/static/pictograms/arasaac/24368.webp",  # Rezar
-    "go_out": "/static/pictograms/arasaac/28689.webp",  # Salir
-    "watch_tv": "/static/pictograms/arasaac/2782.webp",  # Ver TV
+    "walk": "/static/pictograms/libre/caminar.webp",  # Caminar
+    "rest": "/static/pictograms/libre/descansar.webp",  # Descansar
+    "write": "/static/pictograms/libre/escribir.webp",  # Escribir
+    "read": "/static/pictograms/libre/leer.webp",  # Leer
+    "call": "/static/pictograms/libre/llamar.webp",  # Llamar
+    "listen": "/static/pictograms/libre/musica.webp",  # Música
+    "paint": "/static/pictograms/libre/pintar.webp",  # Pintar
+    "pray": "/static/pictograms/libre/rezar.webp",  # Rezar
+    "go_out": "/static/pictograms/libre/salir.webp",  # Salir
+    "watch_tv": "/static/pictograms/libre/ver_tv.webp",  # Ver TV
     # Animales
-    "aac_horse": "/static/pictograms/arasaac/2294.webp",  # Caballo
-    "aac_cat": "/static/pictograms/arasaac/7114.webp",  # Gato
-    "aac_dog": "/static/pictograms/arasaac/7202.webp",  # Perro
-    "aac_fish": "/static/pictograms/arasaac/2520.webp",  # Pez
-    "aac_bird": "/static/pictograms/arasaac/2490.webp",  # Pájaro
+    "aac_horse": "/static/pictograms/libre/caballo.webp",  # Caballo
+    "aac_cat": "/static/pictograms/libre/gato.webp",  # Gato
+    "aac_dog": "/static/pictograms/libre/perro.webp",  # Perro
+    "aac_fish": "/static/pictograms/libre/pez.webp",  # Pez
+    "aac_bird": "/static/pictograms/libre/ave.webp",  # Pájaro
     # Aseo
-    "groom": "/static/pictograms/arasaac/5361.webp",  # Afeitarme
-    "shower": "/static/pictograms/arasaac/2371.webp",  # Bañarme
-    "nails": "/static/pictograms/arasaac/10153.webp",  # Cortar Uñas
-    "brush_teeth": "/static/pictograms/arasaac/31880.webp",  # Dientes
-    "wash_hands": "/static/pictograms/arasaac/8975.webp",  # Lavar Manos
-    "comb": "/static/pictograms/arasaac/2512.webp",  # Peinarme
-    "change_clothes": "/static/pictograms/arasaac/2781.webp",  # Ropa
+    "groom": "/static/pictograms/libre/afeitarme.webp",  # Afeitarme
+    "shower": "/static/pictograms/libre/banarme.webp",  # Bañarme
+    "nails": "/static/pictograms/libre/cortar_unas.webp",  # Cortar Uñas
+    "brush_teeth": "/static/pictograms/libre/cepillar_dientes.webp",  # Dientes
+    "wash_hands": "/static/pictograms/libre/lavar_manos.webp",  # Lavar Manos
+    "comb": "/static/pictograms/libre/peinarme.webp",  # Peinarme
+    "change_clothes": "/static/pictograms/libre/cambiar_ropa.webp",  # Ropa
     # Asistencia
-    "position": "/static/pictograms/arasaac/c_acomodarme.webp",  # Acomodarme (compuesto)
-    "tv_remote": "/static/pictograms/arasaac/26182.webp",  # Control TV
-    "glasses": "/static/pictograms/arasaac/3329.webp",  # Lentes
-    "help_up": "/static/pictograms/arasaac/6548.webp",  # Levantarme
-    "light_on": "/static/pictograms/arasaac/8103.webp",  # Luz
-    "sit_down": "/static/pictograms/arasaac/25082.webp",  # Sentarme
-    "quiet": "/static/pictograms/arasaac/5936.webp",  # Silencio
-    "wheelchair": "/static/pictograms/arasaac/6212.webp",  # Silla Ruedas
-    "phone": "/static/pictograms/arasaac/26479.webp",  # Teléfono
+    "position": "/static/pictograms/libre/acomodarme.webp",  # Acomodarme (compuesto)
+    "tv_remote": "/static/pictograms/libre/control_tv.webp",  # Control TV
+    "glasses": "/static/pictograms/libre/lentes.webp",  # Lentes
+    "help_up": "/static/pictograms/libre/levantarse.webp",  # Levantarme
+    "light_on": "/static/pictograms/libre/luz.webp",  # Luz
+    "sit_down": "/static/pictograms/libre/sentarse.webp",  # Sentarme
+    "quiet": "/static/pictograms/libre/silencio.webp",  # Silencio
+    "wheelchair": "/static/pictograms/libre/silla_de_ruedas.webp",  # Silla Ruedas
+    "phone": "/static/pictograms/libre/telefono.webp",  # Teléfono
     # Bebida
-    "water": "/static/pictograms/arasaac/2248.webp",  # Agua
-    "coffee": "/static/pictograms/arasaac/2296.webp",  # Café
-    "juice": "/static/pictograms/arasaac/2624.webp",  # Jugo
-    "milk": "/static/pictograms/arasaac/2445.webp",  # Leche
-    "tea": "/static/pictograms/arasaac/2429.webp",  # Té
+    "water": "/static/pictograms/libre/agua.webp",  # Agua
+    "coffee": "/static/pictograms/libre/cafe.webp",  # Café
+    "juice": "/static/pictograms/libre/jugo.webp",  # Jugo
+    "milk": "/static/pictograms/libre/leche.webp",  # Leche
+    "tea": "/static/pictograms/libre/te.webp",  # Té
     # Casa
-    "aac_bed": "/static/pictograms/arasaac/2304.webp",  # Cama
-    "aac_door": "/static/pictograms/arasaac/3244.webp",  # Puerta
-    "aac_chair": "/static/pictograms/arasaac/3155.webp",  # Silla
-    "aac_tv": "/static/pictograms/arasaac/25498.webp",  # TV
+    "aac_bed": "/static/pictograms/libre/cama.webp",  # Cama
+    "aac_door": "/static/pictograms/libre/puerta.webp",  # Puerta
+    "aac_chair": "/static/pictograms/libre/silla.webp",  # Silla
+    "aac_tv": "/static/pictograms/libre/television.webp",  # TV
     # Comida
-    "rice": "/static/pictograms/arasaac/39387.webp",  # Arroz
-    "meat": "/static/pictograms/arasaac/2316.webp",  # Carne
-    "salad": "/static/pictograms/arasaac/2377.webp",  # Ensalada
-    "fruit": "/static/pictograms/arasaac/4653.webp",  # Fruta
-    "hamb": "/static/pictograms/arasaac/2419.webp",  # Hamburguesa
-    "bread": "/static/pictograms/arasaac/2494.webp",  # Pan
-    "fish": "/static/pictograms/arasaac/2519.webp",  # Pescado
-    "chicken": "/static/pictograms/arasaac/24815.webp",  # Pollo
-    "dessert": "/static/pictograms/arasaac/7216.webp",  # Postre
-    "soup": "/static/pictograms/arasaac/2573.webp",  # Sopa
+    "rice": "/static/pictograms/libre/arroz.webp",  # Arroz
+    "meat": "/static/pictograms/libre/carne.webp",  # Carne
+    "salad": "/static/pictograms/libre/ensalada.webp",  # Ensalada
+    "fruit": "/static/pictograms/libre/fruta.webp",  # Fruta
+    "hamb": "/static/pictograms/libre/hamburguesa.webp",  # Hamburguesa
+    "bread": "/static/pictograms/libre/pan.webp",  # Pan
+    "fish": "/static/pictograms/libre/pescado.webp",  # Pescado
+    "chicken": "/static/pictograms/libre/pollo.webp",  # Pollo
+    "dessert": "/static/pictograms/libre/postre.webp",  # Postre
+    "soup": "/static/pictograms/libre/sopa.webp",  # Sopa
     # Gente
-    "friend": "/static/pictograms/arasaac/8487.webp",  # Amigo
-    "caregiver": "/static/pictograms/arasaac/14662.webp",  # Cuidador
-    "doctor": "/static/pictograms/arasaac/2467.webp",  # Doctor
-    "nurse": "/static/pictograms/arasaac/2375.webp",  # Enfermera
-    "wife": "/static/pictograms/arasaac/c_esposa.webp",  # Esposa (compuesto)
-    "husband": "/static/pictograms/arasaac/c_esposo.webp",  # Esposo (compuesto)
-    "family": "/static/pictograms/arasaac/2392.webp",  # Familia
-    "daughter": "/static/pictograms/arasaac/c_hija.webp",  # Hija (compuesto)
-    "son": "/static/pictograms/arasaac/c_hijo.webp",  # Hijo (compuesto)
-    "granddaughter": "/static/pictograms/arasaac/c_nieta.webp",  # Nieta (compuesto)
-    "grandson": "/static/pictograms/arasaac/c_nieto.webp",  # Nieto (compuesto)
-    "priest": "/static/pictograms/arasaac/30822.webp",  # Sacerdote
-    "neighbor": "/static/pictograms/arasaac/c_vecino.webp",  # Vecino (compuesto)
+    "friend": "/static/pictograms/libre/amigo.webp",  # Amigo
+    "caregiver": "/static/pictograms/libre/cuidador.webp",  # Cuidador
+    "doctor": "/static/pictograms/libre/medico.webp",  # Doctor
+    "nurse": "/static/pictograms/libre/enfermera.webp",  # Enfermera
+    "wife": "/static/pictograms/libre/esposa.webp",  # Esposa (compuesto)
+    "husband": "/static/pictograms/libre/esposo.webp",  # Esposo (compuesto)
+    "family": "/static/pictograms/libre/familia.webp",  # Familia
+    "daughter": "/static/pictograms/libre/hija.webp",  # Hija (compuesto)
+    "son": "/static/pictograms/libre/hijo.webp",  # Hijo (compuesto)
+    "granddaughter": "/static/pictograms/libre/nieta.webp",  # Nieta (compuesto)
+    "grandson": "/static/pictograms/libre/nieto.webp",  # Nieto (compuesto)
+    "priest": "/static/pictograms/libre/sacerdote.webp",  # Sacerdote
+    "neighbor": "/static/pictograms/libre/vecino.webp",  # Vecino (compuesto)
     # Lugares
-    "aac_home_place": "/static/pictograms/arasaac/2317.webp",  # Casa
-    "aac_hospital": "/static/pictograms/arasaac/29859.webp",  # Doctor
-    "aac_park": "/static/pictograms/arasaac/2859.webp",  # Parque
-    "aac_store": "/static/pictograms/arasaac/35695.webp",  # Tienda
+    "aac_home_place": "/static/pictograms/libre/casa.webp",  # Casa
+    "aac_hospital": "/static/pictograms/libre/consulta_medica.webp",  # Doctor
+    "aac_park": "/static/pictograms/libre/parque.webp",  # Parque
+    "aac_store": "/static/pictograms/libre/tienda.webp",  # Tienda
     # Necesidad
-    "hearing_aid": "/static/pictograms/arasaac/34278.webp",  # Audífono
-    "help_gen": "/static/pictograms/arasaac/12252.webp",  # Ayuda
-    "toilet": "/static/pictograms/arasaac/2430.webp",  # Baño
-    "heat": "/static/pictograms/arasaac/35561.webp",  # Calor
-    "charge_phone": "/static/pictograms/arasaac/34939.webp",  # Cargar Celular
-    "company": "/static/pictograms/arasaac/28187.webp",  # Compañía
-    "dentures": "/static/pictograms/arasaac/37170.webp",  # Dentadura
-    "sleep": "/static/pictograms/arasaac/2369.webp",  # Dormir
-    "cold": "/static/pictograms/arasaac/35557.webp",  # Frío
-    "medicine": "/static/pictograms/arasaac/8163.webp",  # Medicina
-    "pillbox": "/static/pictograms/arasaac/39869.webp",  # Pastillero
+    "hearing_aid": "/static/pictograms/libre/audifono.webp",  # Audífono
+    "help_gen": "/static/pictograms/libre/ayuda.webp",  # Ayuda
+    "toilet": "/static/pictograms/libre/bano.webp",  # Baño
+    "heat": "/static/pictograms/libre/calor.webp",  # Calor
+    "charge_phone": "/static/pictograms/libre/cargar_celular.webp",  # Cargar Celular
+    "company": "/static/pictograms/libre/compania.webp",  # Compañía
+    "dentures": "/static/pictograms/libre/dentadura.webp",  # Dentadura
+    "sleep": "/static/pictograms/libre/dormir.webp",  # Dormir
+    "cold": "/static/pictograms/libre/frio.webp",  # Frío
+    "medicine": "/static/pictograms/libre/medicina.webp",  # Medicina
+    "pillbox": "/static/pictograms/libre/pastillero.webp",  # Pastillero
     # Respuestas
-    "bye": "/static/pictograms/arasaac/5896.webp",  # Adiós
-    "good": "/static/pictograms/arasaac/5397.webp",  # Bien
-    "wait": "/static/pictograms/arasaac/8109.webp",  # Espera
-    "thanks": "/static/pictograms/arasaac/8128.webp",  # Gracias
-    "hello": "/static/pictograms/arasaac/6009.webp",  # Hola
-    "bad": "/static/pictograms/arasaac/5504.webp",  # Mal
-    "more": "/static/pictograms/arasaac/3220.webp",  # Más
-    "no": "/static/pictograms/arasaac/5526.webp",  # No
-    "dont_know": "/static/pictograms/arasaac/7180.webp",  # No sé
-    "please": "/static/pictograms/arasaac/38907.webp",  # Por favor
-    "yes": "/static/pictograms/arasaac/5584.webp",  # Sí
-    "maybe": "/static/pictograms/arasaac/11696.webp",  # Tal vez
-    "finished": "/static/pictograms/arasaac/28429.webp",  # Terminé
+    "bye": "/static/pictograms/libre/adios.webp",  # Adiós
+    "good": "/static/pictograms/libre/bien.webp",  # Bien
+    "wait": "/static/pictograms/libre/espera.webp",  # Espera
+    "thanks": "/static/pictograms/libre/gracias.webp",  # Gracias
+    "hello": "/static/pictograms/libre/hola.webp",  # Hola
+    "bad": "/static/pictograms/libre/mal.webp",  # Mal
+    "more": "/static/pictograms/libre/mas.webp",  # Más
+    "no": "/static/pictograms/libre/no.webp",  # No
+    "dont_know": "/static/pictograms/libre/no_se.webp",  # No sé
+    "please": "/static/pictograms/libre/por_favor.webp",  # Por favor
+    "yes": "/static/pictograms/libre/si.webp",  # Sí
+    "maybe": "/static/pictograms/libre/tal_vez.webp",  # Tal vez
+    "finished": "/static/pictograms/libre/termine.webp",  # Terminé
     # Ropa
-    "aac_shirt": "/static/pictograms/arasaac/13640.webp",  # Camisa
-    "aac_glasses": "/static/pictograms/arasaac/3329.webp",  # Lentes
-    "aac_shoes": "/static/pictograms/arasaac/2622.webp",  # Zapatos
+    "aac_shirt": "/static/pictograms/libre/camisa.webp",  # Camisa
+    "aac_glasses": "/static/pictograms/libre/lentes.webp",  # Lentes
+    "aac_shoes": "/static/pictograms/libre/zapatos.webp",  # Zapatos
     # Sentir
-    "bored": "/static/pictograms/arasaac/31744.webp",  # Aburrido
-    "tired": "/static/pictograms/arasaac/31925.webp",  # Cansado
-    "pain": "/static/pictograms/arasaac/2367.webp",  # Dolor
-    "pain_arm": "/static/pictograms/arasaac/28773.webp",  # Dolor Brazo
-    "pain_head": "/static/pictograms/arasaac/28753.webp",  # Dolor Cabeza
-    "pain_back": "/static/pictograms/arasaac/28785.webp",  # Dolor Espalda
-    "pain_stomach": "/static/pictograms/arasaac/28765.webp",  # Dolor Panza
-    "pain_chest": "/static/pictograms/arasaac/28781.webp",  # Dolor Pecho
-    "pain_leg": "/static/pictograms/arasaac/28769.webp",  # Dolor Pierna
-    "angry": "/static/pictograms/arasaac/31884.webp",  # Enojado
-    "happy": "/static/pictograms/arasaac/32123.webp",  # Feliz
-    "pain_throat": "/static/pictograms/arasaac/28761.webp",  # Garganta
-    "dizzy": "/static/pictograms/arasaac/31795.webp",  # Mareado
-    "scared": "/static/pictograms/arasaac/31896.webp",  # Miedo
-    "sad": "/static/pictograms/arasaac/31939.webp",  # Triste
+    "bored": "/static/pictograms/libre/aburrido.webp",  # Aburrido
+    "tired": "/static/pictograms/libre/cansado.webp",  # Cansado
+    "pain": "/static/pictograms/libre/dolor.webp",  # Dolor
+    "pain_arm": "/static/pictograms/libre/dolor_brazo.webp",  # Dolor Brazo
+    "pain_head": "/static/pictograms/libre/dolor_cabeza.webp",  # Dolor Cabeza
+    "pain_back": "/static/pictograms/libre/dolor_espalda.webp",  # Dolor Espalda
+    "pain_stomach": "/static/pictograms/libre/dolor_panza.webp",  # Dolor Panza
+    "pain_chest": "/static/pictograms/libre/dolor_pecho.webp",  # Dolor Pecho
+    "pain_leg": "/static/pictograms/libre/dolor_pierna.webp",  # Dolor Pierna
+    "angry": "/static/pictograms/libre/enojado.webp",  # Enojado
+    "happy": "/static/pictograms/libre/feliz.webp",  # Feliz
+    "pain_throat": "/static/pictograms/libre/dolor_garganta.webp",  # Garganta
+    "dizzy": "/static/pictograms/libre/mareado.webp",  # Mareado
+    "scared": "/static/pictograms/libre/miedo.webp",  # Miedo
+    "sad": "/static/pictograms/libre/triste.webp",  # Triste
 }
 
 # ==================== DATABASE MANAGER ====================
@@ -419,7 +422,7 @@ class Database:
 
     # Columnas añadidas después de crear la tabla: create_all no las añade a bases ya existentes
     _NEW_COLUMNS = {
-        "patients": {"cloud_speech_consent_at": "TIMESTAMP", "speech_profile": "TEXT"},
+        "patients": {"cloud_speech_consent_at": "TIMESTAMP", "speech_profile": "TEXT", "aac_profile": "TEXT"},
         "progress": {"auto_correct": "BOOLEAN", "therapist_correct": "BOOLEAN"},
     }
 
@@ -434,8 +437,9 @@ class Database:
                     print(f"🛠️ Columna {table}.{name} añadida")
 
     def _apply_word_images(self):
-        """Imagen de ARASAAC de cada palabra de práctica (WORD_IMAGES). También actualiza
-        bases de datos existentes; las palabras sin imagen conocida no se tocan."""
+        """Pictograma de cada palabra de práctica (WORD_IMAGES). También actualiza bases de datos
+        existentes; las palabras sin imagen conocida no se tocan, salvo que apunten a una de las
+        imágenes de ARASAAC retiradas: esas se quedan sin imagen en vez de con una rota."""
         session = self.SessionLocal()
         try:
             changed = 0
@@ -443,6 +447,9 @@ class Database:
                 image = WORD_IMAGES.get(word_image_key(word.category_id, word.word))
                 if image and word.image_url != image:
                     word.image_url = image
+                    changed += 1
+                elif not image and (word.image_url or "").startswith(OLD_PICTOGRAM_PREFIX):
+                    word.image_url = None
                     changed += 1
             session.commit()
             if changed:
@@ -806,12 +813,16 @@ class Database:
         session = self.SessionLocal()
         try:
             # Totales
-            total_attempts, unique_words, avg_score, best_score = session.query(
+            # correct_attempts usa la misma definición de «correcto» que el resto (manda el terapeuta)
+            total_attempts, unique_words, avg_score, best_score, correct_attempts = session.query(
                 func.count(Progress.id),
                 func.count(func.distinct(Progress.word_id)),
                 func.avg(Progress.score),
                 func.max(Progress.score),
+                func.sum(case((correct_sql(), 1), else_=0)),
             ).filter(Progress.patient_id == patient_id, _not_game()).one()
+            total_attempts = total_attempts or 0
+            correct_attempts = int(correct_attempts or 0)
 
             # Por categoría (solo intentos sobre palabras existentes, como antes)
             practiced = {
@@ -843,15 +854,18 @@ class Database:
             for r, word_text in session.query(Progress, Word.word)                    .outerjoin(Word, Progress.word_id == Word.id)                    .filter(Progress.patient_id == patient_id, _not_game())                    .order_by(Progress.created_at.desc()).limit(20).all():
                 r_dict = self._to_dict(r)
                 r_dict['word'] = word_text if word_text is not None else "Unknown"
+                r_dict['correct'] = is_attempt_correct(r.score, r.auto_correct, r.therapist_correct)
                 recent_list.append(r_dict)
 
             return {
                 "patient_id": patient_id,
                 "stats": {
-                    "total_attempts": total_attempts or 0,
+                    "total_attempts": total_attempts,
                     "unique_words": unique_words or 0,
                     "average_score": round(avg_score or 0, 1),
-                    "best_score": best_score or 0
+                    "best_score": best_score or 0,
+                    "correct_attempts": correct_attempts,
+                    "correct_rate": round(correct_attempts * 100 / total_attempts) if total_attempts else 0,
                 },
                 "by_category": by_category,
                 "recent_attempts": recent_list
@@ -869,7 +883,9 @@ class Database:
              
              # Fetch all progress for patient
              # Solo pronunciación: las partidas de juegos no son intentos de habla
-             all_p = session.query(Progress).filter(Progress.patient_id == patient_id, _not_game()).all()
+             # En orden cronológico: decide el desempate de top_words (antes dependía del plan de SQLite)
+             all_p = session.query(Progress).filter(Progress.patient_id == patient_id, _not_game()) \
+                 .order_by(Progress.created_at).all()
              
              # Process in python to be DB agnostic (easier than writing conditional SQL for date functions)
              daily_map = {}
@@ -958,6 +974,45 @@ class Database:
             session.add(new_patient)
             session.commit()
             return new_patient.id
+        finally:
+            session.close()
+
+    def update_patient(self, patient_id: str, data: Dict) -> bool:
+        """Cambia los datos de la ficha (nombre, edad, diagnóstico, notas). False si no existe."""
+        session = self.SessionLocal()
+        try:
+            p = session.get(Patient, patient_id)
+            if not p:
+                return False
+            p.name = data["name"]
+            p.age = data.get("age")
+            p.diagnosis = data.get("diagnosis")
+            p.notes = data.get("notes")
+            session.commit()
+            return True
+        finally:
+            session.close()
+
+    def delete_patient(self, patient_id: str) -> bool:
+        """Borra al paciente y TODO lo suyo (intentos, puntos y logros). No se puede deshacer.
+        Las sesiones que lo tenían como paciente activo se quedan sin paciente. False si no existe."""
+        session = self.SessionLocal()
+        try:
+            p = session.get(Patient, patient_id)
+            if not p:
+                return False
+            for model in (Progress, Achievement, Points):
+                session.query(model).filter(model.patient_id == patient_id).delete(synchronize_session=False)
+            session.query(AuthSession).filter(AuthSession.patient_id == patient_id) \
+                .update({AuthSession.patient_id: None}, synchronize_session=False)
+            session.flush()
+            session.expire(p)   # sus listas de intentos, puntos y logros ya no existen
+            session.delete(p)
+            session.commit()
+            return True
+        except Exception:
+            session.rollback()
+            raise
         finally:
             session.close()
 
@@ -1328,6 +1383,173 @@ class Database:
             
             return difficult_words
             
+        finally:
+            session.close()
+
+    def get_review_words(self, patient_id: str, limit: int = 20) -> List[Dict]:
+        """Palabras para repasar: las que el paciente falla. Entra una palabra si acierta menos
+        del 60 % de sus intentos o si su último intento no fue correcto (misma definición de
+        «correcto» que el resto: manda el terapeuta). Primero las que peor van."""
+        session = self.SessionLocal()
+        try:
+            stats: Dict[str, Dict] = {}
+            for p in session.query(Progress).filter(Progress.patient_id == patient_id, _not_game()) \
+                    .order_by(Progress.created_at).all():
+                s = stats.setdefault(p.word_id, {"n": 0, "ok": 0, "sum": 0.0, "last_ok": False})
+                correct = is_attempt_correct(p.score, p.auto_correct, p.therapist_correct)
+                s["n"] += 1
+                s["ok"] += int(correct)
+                s["sum"] += p.score or 0
+                s["last_ok"] = correct
+
+            candidates = []
+            for word_id, s in stats.items():
+                rate = s["ok"] / s["n"]
+                if rate >= 0.6 and s["last_ok"]:
+                    continue
+                word = session.get(Word, word_id)
+                if word:
+                    candidates.append((rate, s["sum"] / s["n"], word.word, word, s["n"]))
+            candidates.sort(key=lambda c: (c[0], c[1], c[2]))
+
+            out = []
+            for rate, avg, _text, word, attempts in candidates[:max(0, limit)]:
+                d = self._to_dict(word)
+                d["review_stats"] = {"attempts": attempts, "correct_rate": round(rate * 100),
+                                     "avg_score": round(avg, 1)}
+                out.append(d)
+            return out
+        finally:
+            session.close()
+
+    def get_report(self, patient_id: str, days: int = 30) -> Optional[Dict]:
+        """Datos del informe imprimible del paciente. days: periodo (0 = todo el historial).
+        Las fechas se agrupan en la hora local del servidor (el de la clínica)."""
+        def local(dt: datetime) -> datetime:
+            return dt.replace(tzinfo=timezone.utc).astimezone().replace(tzinfo=None)
+
+        session = self.SessionLocal()
+        try:
+            patient = session.get(Patient, patient_id)
+            if not patient:
+                return None
+            query = session.query(Progress).filter(Progress.patient_id == patient_id, _not_game())
+            if days > 0:
+                query = query.filter(Progress.created_at >= _utcnow() - timedelta(days=days))
+            attempts = query.order_by(Progress.created_at).all()
+
+            words = {w.id: w for w in session.query(Word).filter(
+                Word.id.in_(list({p.word_id for p in attempts}))).all()} if attempts else {}
+            categories = {c.id: c for c in session.query(Category).order_by(Category.order_num).all()}
+
+            def new_bucket() -> Dict:
+                return {"attempts": 0, "correct": 0, "sum": 0.0, "days": set(), "words": set()}
+
+            def add(bucket: Dict, p: Progress, correct: bool, day) -> None:
+                bucket["attempts"] += 1
+                bucket["correct"] += int(correct)
+                bucket["sum"] += p.score or 0
+                bucket["days"].add(day)
+                bucket["words"].add(p.word_id)
+
+            def summary(bucket: Dict) -> Dict:
+                n = bucket["attempts"]
+                return {"attempts": n, "correct": bucket["correct"],
+                        "correct_rate": round(bucket["correct"] * 100 / n) if n else 0,
+                        "avg_score": round(bucket["sum"] / n) if n else 0,
+                        "days": len(bucket["days"]), "words": len(bucket["words"])}
+
+            total = new_bucket()
+            by_week: Dict = {}
+            by_month: Dict = {}
+            by_category: Dict[str, Dict] = {}
+            by_word: Dict[str, Dict] = {}
+            rated = overridden = 0
+            for p in attempts:
+                when = local(p.created_at)
+                day = when.date()
+                correct = is_attempt_correct(p.score, p.auto_correct, p.therapist_correct)
+                add(total, p, correct, day)
+                add(by_week.setdefault(day - timedelta(days=day.weekday()), new_bucket()), p, correct, day)
+                add(by_month.setdefault(day.replace(day=1), new_bucket()), p, correct, day)
+                add(by_word.setdefault(p.word_id, new_bucket()), p, correct, day)
+                word = words.get(p.word_id)
+                if word and word.category_id:
+                    add(by_category.setdefault(word.category_id, new_bucket()), p, correct, day)
+                if p.therapist_correct is not None:
+                    rated += 1
+                    if bool(p.therapist_correct) != is_attempt_correct(p.score, p.auto_correct):
+                        overridden += 1
+
+            # Evolución: por semanas; si el periodo es largo (más de 16 semanas), por meses
+            monthly = len(by_week) > 16
+            evolution = [{"start": start, **summary(b)}
+                         for start, b in sorted((by_month if monthly else by_week).items())]
+
+            word_rows = []
+            for word_id, b in by_word.items():
+                word = words.get(word_id)
+                if word:
+                    word_rows.append({"word": word.word, **summary(b),
+                                      "rate": b["correct"] / b["attempts"], "avg": b["sum"] / b["attempts"]})
+            difficult = sorted((w for w in word_rows if w["attempts"] >= 2 and w["rate"] < 0.5),
+                               key=lambda w: (w["rate"], w["avg"], w["word"]))[:10]
+            mastered = sorted((w for w in word_rows if w["attempts"] >= 2 and w["rate"] >= 0.8),
+                              key=lambda w: (-w["rate"], -w["attempts"], w["word"]))[:10]
+
+            return {
+                "patient": self._to_dict(patient),
+                "days": days,
+                "generated_at": local(_utcnow()),
+                "first_attempt": local(attempts[0].created_at) if attempts else None,
+                "last_attempt": local(attempts[-1].created_at) if attempts else None,
+                "summary": summary(total),
+                "evolution": evolution,
+                "evolution_unit": "mes" if monthly else "semana",
+                "categories": [{"name": c.name, "icon": c.icon, **summary(by_category[c.id])}
+                               for c in categories.values() if c.id in by_category],
+                "difficult": difficult,
+                "mastered": mastered,
+                "therapist": {"rated": rated, "overridden": overridden},
+            }
+        finally:
+            session.close()
+
+    @staticmethod
+    def _load_aac_profile(raw: Optional[str]) -> Dict:
+        try:
+            stored = json.loads(raw) if raw else {}
+        except ValueError:
+            stored = {}
+        if not isinstance(stored, dict):
+            stored = {}
+        return {key: [x for x in stored.get(key, []) if isinstance(x, str)] if isinstance(stored.get(key), list) else []
+                for key in ("hidden", "phrases")}
+
+    def get_aac_profile(self, patient_id: str) -> Dict:
+        """Comunicador a medida del paciente: ids de pictogramas ocultos y frases propias."""
+        session = self.SessionLocal()
+        try:
+            p = session.get(Patient, patient_id)
+            return self._load_aac_profile(p.aac_profile if p else None)
+        finally:
+            session.close()
+
+    def set_aac_profile(self, patient_id: str, updates: Dict) -> Optional[Dict]:
+        """Sustituye las listas indicadas (hidden, phrases); la otra se conserva. None si no existe."""
+        session = self.SessionLocal()
+        try:
+            p = session.get(Patient, patient_id)
+            if not p:
+                return None
+            current = self._load_aac_profile(p.aac_profile)
+            for key in ("hidden", "phrases"):
+                if updates.get(key) is not None:
+                    current[key] = list(updates[key])
+            # Mismo texto que JSON.stringify (la app Android guarda lo mismo: ver local-api.js)
+            p.aac_profile = json.dumps(current, ensure_ascii=False, separators=(",", ":"))
+            session.commit()
+            return current
         finally:
             session.close()
 

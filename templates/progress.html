@@ -2,7 +2,8 @@
 {% import "partials/_ui.html" as ui with context %}
 
 {% block head %}
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.6.1/dist/chart.umd.min.js"></script>
+    <!-- Chart.js 4.6.1 servido localmente (sin CDN: funciona sin internet y en la app) -->
+    <script src="{{ asset('vendor/chartjs/chart.umd.min.js') }}"></script>
 {% endblock %}
 
 {% block body %}
@@ -13,10 +14,18 @@
     {% endcall %}
 
     <main class="container mx-auto px-4 py-8 pt-24 md:pt-28">
-        <h1
-            class="text-3xl font-bold text-gray-900 mb-8 bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary w-fit">
-            <i class="fas fa-chart-line text-primary mr-3"></i>Mi Progreso
-        </h1>
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 w-fit">
+                <i class="fas fa-chart-line text-primary mr-3"></i>Mi Progreso
+            </h1>
+            {%- if not app_mode %}
+            <!-- Informe para la historia clínica o la familia (se imprime o se guarda como PDF) -->
+            <a href="/report"
+                class="min-h-[48px] px-5 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-indigo-700 flex items-center gap-2">
+                <i class="fas fa-download" aria-hidden="true"></i> Informe para imprimir
+            </a>
+            {%- endif %}
+        </div>
 
         <!-- Stats Overview -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -38,18 +47,22 @@
 
             <div class="bg-white rounded-2xl p-6 shadow-lg">
                 <div class="flex items-center justify-between mb-2">
-                    <span class="text-gray-500">Precisión</span>
-                    <i class="fas fa-bullseye text-success"></i>
+                    <span class="text-gray-600">Correctos</span>
+                    <i class="fas fa-bullseye text-success" aria-hidden="true"></i>
                 </div>
-                <div class="text-3xl font-bold text-success" id="stat-accuracy">0%</div>
+                <!-- Intentos dados por buenos: manda la valoración del terapeuta y, si no la hay,
+                     el umbral del nivel (la misma cuenta que la app móvil) -->
+                <div class="text-3xl font-bold text-green-700" id="stat-correct">0%</div>
+                <p class="text-sm text-gray-600 mt-1" id="stat-correct-detail"></p>
             </div>
 
             <div class="bg-white rounded-2xl p-6 shadow-lg">
                 <div class="flex items-center justify-between mb-2">
-                    <span class="text-gray-500">Mejor Puntuación</span>
-                    <i class="fas fa-star text-warning"></i>
+                    <span class="text-gray-600">Nota media</span>
+                    <i class="fas fa-star text-warning" aria-hidden="true"></i>
                 </div>
-                <div class="text-3xl font-bold text-warning" id="stat-best">0%</div>
+                <div class="text-3xl font-bold text-gray-800" id="stat-average">0%</div>
+                <p class="text-sm text-gray-600 mt-1" id="stat-best"></p>
             </div>
         </div>
 
@@ -59,7 +72,8 @@
                 <h3 class="text-lg font-bold text-gray-800 mb-4">
                     <i class="fas fa-chart-area text-primary mr-2"></i>Progreso Diario
                 </h3>
-                <canvas id="progressChart" height="200"></canvas>
+                <canvas id="progressChart" height="200" role="img" aria-label="Intentos correctos y por mejorar de cada día, y nota media, en los últimos 14 días"></canvas>
+                <p class="text-sm text-gray-600 mt-3">Barras: intentos del día (en verde, los correctos). Línea: nota media.</p>
             </div>
 
             <!-- Category Progress -->
@@ -92,6 +106,11 @@
                 <div id="difficult-words" class="space-y-3">
                     <!-- Se llena dinámicamente -->
                 </div>
+                <!-- Sesión de repaso con las palabras que falla (aparece si hay alguna) -->
+                <a href="/practice?category=__repaso" id="review-link"
+                    class="hidden mt-4 min-h-[48px] px-5 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-indigo-700 items-center justify-center gap-2">
+                    <i class="fas fa-redo" aria-hidden="true"></i> Repasar las palabras difíciles
+                </a>
             </div>
         </div>
 
@@ -109,10 +128,32 @@
     <script>
         let progressChart = null;
 
+        // Las palabras pueden ser personalizadas (las escribe el terapeuta): se escapan al pintarlas
+        const esc = (value) => String(value ?? '').replace(/[&<>"']/g,
+            (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const intentos = (n) => `${n} ${n === 1 ? 'intento' : 'intentos'}`;
+        // Fecha local AAAA-MM-DD (toISOString da la fecha UTC: de noche el día de hoy no coincidía)
+        const localDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
         document.addEventListener('DOMContentLoaded', async () => {
             await loadProgress();
             await loadDetailedStats();
+            await loadReviewLink();
         });
+
+        // El repaso usa su propia lista (palabras con pocos aciertos o falladas la última vez)
+        async function loadReviewLink() {
+            try {
+                const data = await (await fetch('/api/words/review/default?limit=1')).json();
+                if (data.count > 0) {
+                    const link = document.getElementById('review-link');
+                    link.classList.remove('hidden');
+                    link.classList.add('flex');
+                }
+            } catch (e) {
+                console.error('Error loading review words:', e);
+            }
+        }
 
         async function loadProgress() {
             try {
@@ -122,11 +163,16 @@
                 // Update stats
                 document.getElementById('stat-total').textContent = data.stats.total_attempts || 0;
                 document.getElementById('stat-unique').textContent = data.stats.unique_words || 0;
-                document.getElementById('stat-accuracy').textContent =
+                const total = data.stats.total_attempts || 0;
+                const rate = data.stats.correct_rate || 0;
+                document.getElementById('stat-correct').textContent = rate + '%';
+                document.getElementById('stat-correct-detail').textContent =
+                    total ? `${data.stats.correct_attempts || 0} de ${intentos(total)}` : '';
+                document.getElementById('stat-average').textContent =
                     Math.round(data.stats.average_score || 0) + '%';
                 document.getElementById('stat-best').textContent =
-                    Math.round(data.stats.best_score || 0) + '%';
-                anunciar('Progreso cargado: ' + (data.stats.total_attempts || 0) + ' intentos, precisión ' + Math.round(data.stats.average_score || 0) + ' por ciento');
+                    total ? 'Mejor: ' + Math.round(data.stats.best_score || 0) + '%' : '';
+                anunciar('Progreso cargado: ' + total + ' intentos, ' + rate + ' por ciento correctos');
 
                 // Update category progress
                 const categoryContainer = document.getElementById('category-progress');
@@ -139,14 +185,14 @@
                     return `
                         <div>
                             <div class="flex justify-between mb-1">
-                                <span class="font-medium text-gray-700">${cat.icon || ''} ${cat.name}</span>
+                                <span class="font-medium text-gray-700">${esc(cat.icon || '')} ${esc(cat.name)}</span>
                                 <span class="text-sm text-gray-500">${cat.words_practiced || 0}/${cat.total_words} palabras</span>
                             </div>
                             <div class="bg-gray-200 rounded-full h-3">
                                 <div class="bg-gradient-to-r from-primary to-secondary rounded-full h-3 transition-all" 
                                      style="width: ${progress}%"></div>
                             </div>
-                            <p class="text-xs text-gray-600 mt-1">Precisión promedio: ${avgScore}%</p>
+                            <p class="text-xs text-gray-600 mt-1">Nota media: ${avgScore}%</p>
                         </div>
                     `;
                 }).join('');
@@ -156,15 +202,21 @@
                 if (data.recent_attempts && data.recent_attempts.length > 0) {
                     recentContainer.innerHTML = data.recent_attempts.map(attempt => {
                         const score = Math.round(attempt.score || 0);
-                        const scoreClass = score >= 70 ? 'text-success' : score >= 50 ? 'text-warning' : 'text-red-500';
+                        // El icono y el color siguen al veredicto que cuenta (terapeuta o umbral del
+                        // nivel), no a un 70 fijo
+                        const ok = attempt.correct;
+                        const rated = attempt.therapist_correct !== null && attempt.therapist_correct !== undefined;
 
                         return `
-                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                                <div>
-                                    <span class="font-medium text-gray-800">${attempt.word}</span>
-                                    <span class="text-xs text-gray-600 ml-2">${new Date(attempt.created_at).toLocaleString()}</span>
+                            <div class="flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-xl">
+                                <div class="min-w-0">
+                                    <i class="fas ${ok ? 'fa-check text-green-700' : 'fa-redo text-red-600'} mr-2" aria-hidden="true"></i>
+                                    <span class="visually-hidden">${ok ? 'Correcto:' : 'Por mejorar:'}</span>
+                                    <span class="font-medium text-gray-800">${esc(attempt.word)}</span>
+                                    <span class="text-xs text-gray-600 ml-2">${new Date(attempt.created_at).toLocaleString('es')}</span>
+                                    ${rated ? '<span class="text-xs font-semibold text-indigo-700 bg-indigo-50 rounded-full px-2 py-0.5 ml-2">valorado por el terapeuta</span>' : ''}
                                 </div>
-                                <span class="font-bold ${scoreClass}">${score}%</span>
+                                <span class="font-bold shrink-0 ${ok ? 'text-green-700' : 'text-red-600'}">${score}%</span>
                             </div>
                         `;
                     }).join('');
@@ -193,11 +245,11 @@
                         <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
                             <div class="flex items-center gap-3">
                                 <span class="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold">${idx + 1}</span>
-                                <span class="font-medium">${word.word}</span>
+                                <span class="font-medium">${esc(word.word)}</span>
                             </div>
                             <div class="text-right">
-                                <div class="text-sm text-gray-500">${word.attempts} intentos</div>
-                                <div class="font-bold text-success">${Math.round(word.avg_score)}%</div>
+                                <div class="text-sm text-gray-600">${intentos(word.attempts)}</div>
+                                <div class="font-bold text-gray-800">nota ${Math.round(word.avg_score)}%</div>
                             </div>
                         </div>
                     `).join('');
@@ -210,10 +262,10 @@
                 if (data.difficult_words && data.difficult_words.length > 0) {
                     difficultContainer.innerHTML = data.difficult_words.map(word => `
                         <div class="flex items-center justify-between p-3 bg-red-50 rounded-xl">
-                            <span class="font-medium">${word.word}</span>
+                            <span class="font-medium">${esc(word.word)}</span>
                             <div class="text-right">
-                                <div class="text-sm text-gray-500">${word.attempts} intentos</div>
-                                <div class="font-bold text-red-500">${Math.round(word.avg_score)}%</div>
+                                <div class="text-sm text-gray-600">${intentos(word.attempts)} · ${word.correct_rate}% correctos</div>
+                                <div class="font-bold text-red-700">nota ${Math.round(word.avg_score)}%</div>
                             </div>
                         </div>
                     `).join('');
@@ -231,45 +283,55 @@
 
             // Generate last 14 days labels
             const labels = [];
-            const data = [];
-            const attempts = [];
+            const average = [];
+            const correct = [];
+            const toImprove = [];
 
             for (let i = 13; i >= 0; i--) {
                 const date = new Date();
                 date.setDate(date.getDate() - i);
-                const dateStr = date.toISOString().split('T')[0];
+                const dateStr = localDay(date);
                 labels.push(date.toLocaleDateString('es', { weekday: 'short', day: 'numeric' }));
 
                 const dayData = dailyData?.find(d => d.date === dateStr);
-                data.push(dayData ? Math.round(dayData.avg_score) : null);
-                attempts.push(dayData ? dayData.attempts : 0);
+                average.push(dayData ? Math.round(dayData.avg_score) : null);
+                correct.push(dayData ? dayData.correct : 0);
+                toImprove.push(dayData ? dayData.attempts - dayData.correct : 0);
             }
 
             if (progressChart) {
                 progressChart.destroy();
             }
 
+            // Como en la app móvil: la barra entera son los intentos del día y la parte verde, los
+            // correctos. La nota media va aparte, en línea.
             progressChart = new Chart(ctx, {
-                type: 'line',
+                type: 'bar',
                 data: {
                     labels: labels,
                     datasets: [
                         {
-                            label: 'Precisión %',
-                            data: data,
-                            borderColor: '#6366f1',
-                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                            fill: true,
-                            tension: 0.4,
-                            spanGaps: true
+                            type: 'line',
+                            label: 'Nota media %',
+                            data: average,
+                            borderColor: '#4f46e5',
+                            backgroundColor: '#4f46e5',
+                            tension: 0.3,
+                            spanGaps: true,
+                            yAxisID: 'y'
                         },
                         {
-                            label: 'Intentos',
-                            data: attempts,
-                            borderColor: '#10b981',
-                            backgroundColor: 'transparent',
-                            borderDash: [5, 5],
-                            tension: 0.4,
+                            label: 'Correctos',
+                            data: correct,
+                            backgroundColor: '#059669',
+                            stack: 'intentos',
+                            yAxisID: 'y1'
+                        },
+                        {
+                            label: 'Por mejorar',
+                            data: toImprove,
+                            backgroundColor: '#c7d2fe',
+                            stack: 'intentos',
                             yAxisID: 'y1'
                         }
                     ]
@@ -282,23 +344,31 @@
                         }
                     },
                     scales: {
+                        x: {
+                            stacked: true
+                        },
                         y: {
                             beginAtZero: true,
                             max: 100,
+                            position: 'right',
                             title: {
                                 display: true,
-                                text: 'Precisión %'
+                                text: 'Nota media %'
+                            },
+                            grid: {
+                                drawOnChartArea: false
                             }
                         },
                         y1: {
                             beginAtZero: true,
-                            position: 'right',
+                            stacked: true,
+                            position: 'left',
+                            ticks: {
+                                precision: 0
+                            },
                             title: {
                                 display: true,
                                 text: 'Intentos'
-                            },
-                            grid: {
-                                drawOnChartArea: false
                             }
                         }
                     }

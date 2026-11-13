@@ -2,6 +2,10 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, HTMLResponse
 
+from starlette.concurrency import run_in_threadpool
+
+from ..security import current_patient
+from ..services import db
 from ..settings import STATIC_DIR
 from ..web import page
 
@@ -30,6 +34,21 @@ async def games(request: Request):
 async def progress(request: Request):
     """Página de progreso del paciente"""
     return page(request, "progress.html", "Mi Progreso - Rehab Voice")
+
+
+REPORT_PERIODS = {7: "Últimos 7 días", 30: "Últimos 30 días", 90: "Últimos 3 meses", 0: "Todo el historial"}
+
+
+@router.get("/report", response_class=HTMLResponse)
+async def report(request: Request, days: int = 30):
+    """Informe del paciente activo, pensado para imprimir o guardar como PDF."""
+    if days not in REPORT_PERIODS:
+        days = 30
+    patient_id = current_patient(request)
+    data = await run_in_threadpool(db.get_report, patient_id, days)
+    profile = await run_in_threadpool(db.get_speech_profile, patient_id)
+    return page(request, "report.html", "Informe - Rehab Voice", report=data, periods=REPORT_PERIODS,
+                speech_profile=profile)
 
 
 @router.get("/communicator", response_class=HTMLResponse)

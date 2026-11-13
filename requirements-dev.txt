@@ -2,5 +2,5 @@
 # tools/build_icons.py: subconjunto de Font Awesome
 fonttools>=4.55
 brotli>=1.2
-# tools/compose_pictograms.py: pictogramas compuestos a color
+# tratamiento de imágenes (iconos de la app)
 Pillow>=11.0

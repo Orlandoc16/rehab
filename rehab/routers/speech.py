@@ -7,7 +7,7 @@ import traceback
 from typing import Literal, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictBool
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.concurrency import run_in_threadpool
 
@@ -115,6 +115,7 @@ class SpeechSettings(BaseModel):
     max_recording_s: Optional[int] = Field(default=None, ge=5, le=30)
     pause_s: Optional[float] = Field(default=None, ge=1.0, le=5.0)
     tolerance: Optional[int] = Field(default=None, ge=-15, le=15)
+    slow_voice: Optional[StrictBool] = None  # voz modelo lenta en la práctica
 
 
 def _speech_settings(patient_id: str) -> dict:

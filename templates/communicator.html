@@ -30,6 +30,64 @@
             height: 0px;
             width: 0px;
         }
+
+        /* Tablet u ordenador en horizontal (como en la app móvil): el tablero a la izquierda y la
+           frase a la derecha, siempre a la vista, en vez de ocupar la parte de arriba */
+        @media (min-width: 1024px) and (orientation: landscape) {
+            #comm-layout {
+                display: flex;
+                flex-direction: row-reverse;
+                align-items: flex-start;
+            }
+
+            #phrase-panel {
+                width: 38%;
+                top: 6rem;
+                min-height: calc(100vh - 6rem);
+                max-height: calc(100vh - 6rem);
+                overflow-y: auto;
+                border-bottom-width: 0;
+                border-left: 2px solid #e5e7eb;
+            }
+
+            #comm-main {
+                width: 62%;
+                max-width: none;
+            }
+
+            #pictogram-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            }
+
+            #comm-actions {
+                flex-wrap: wrap;
+            }
+
+            #comm-actions > button:first-child {
+                flex-basis: 100%;
+            }
+
+            #comm-actions > button:not(:first-child) {
+                flex: 1 1 0;
+                padding-top: 0.5rem;
+                padding-bottom: 0.5rem;
+            }
+
+            /* En la columna estrecha, «¡Ayuda!» ocupa su propia fila para que no se corte */
+            #quick-bar {
+                flex-wrap: wrap;
+            }
+
+            #quick-bar > .quick-help {
+                flex-basis: 100%;
+            }
+        }
+
+        /* Mientras suena la voz, el visor de la frase se marca */
+        #sentence-display.speaking {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 4px #c7d2fe;
+        }
     </style>
 {% endblock %}
 
@@ -46,10 +104,9 @@
                     </button>
     {% endcall %}
 
+    <div id="comm-layout">
     <!-- Área de Frase (Siempre visible) -->
-    <!-- Área de Frase (Siempre visible) -->
-    <!-- Added top margin to account for fixed header, removed massive internal padding -->
-    <div
+    <div id="phrase-panel"
         class="bg-white border-b-2 border-gray-200 p-4 md:p-6 sticky top-[72px] z-40 shadow-soft transition-all duration-300">
         <div class="container mx-auto max-w-4xl">
             <!-- Pictogramas elegidos (tocar uno lo quita) -->
@@ -62,7 +119,7 @@
             </div>
 
             <!-- Botones de Acción -->
-            <div class="flex gap-3">
+            <div class="flex gap-3" id="comm-actions">
                 <button aria-label="Escuchar la frase" onclick="speakSentence()"
                     class="flex-1 min-w-0 bg-indigo-600 text-white rounded-xl py-4 px-2 text-lg sm:text-xl font-bold shadow-lg hover:bg-indigo-700 active:bg-indigo-800 transition flex items-center justify-center gap-2 sm:gap-3">
                     <i class="fas fa-volume-high text-2xl"></i> HABLAR
@@ -81,12 +138,16 @@
                     <span class="text-sm leading-tight">Borrar todo</span>
                 </button>
             </div>
+
+            <!-- Barra rápida, siempre a mano: Sí y No se añaden a la frase; ¡Ayuda! se dice al
+                 momento, sin tener que pulsar HABLAR. Se rellena al cargar los pictogramas. -->
+            <div id="quick-bar" class="hidden flex gap-3 mt-3" role="group" aria-label="Respuestas rápidas"></div>
             <p id="comm-status" class="hidden mt-3 text-sm text-center rounded-lg px-3 py-2" role="status" aria-live="polite"></p>
         </div>
     </div>
 
     <!-- Contenido Principal -->
-    <main class="flex-1 container mx-auto max-w-4xl p-4 md:p-6 flex flex-col gap-6">
+    <main id="comm-main" class="flex-1 container mx-auto max-w-4xl p-4 md:p-6 flex flex-col gap-6">
 
         <!-- Pestañas de Categoría -->
         <div class="overflow-x-auto hide-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
@@ -103,13 +164,11 @@
             <!-- Se llena dinámicamente -->
         </div>
 
-        <!-- Atribución obligatoria (licencia CC BY-NC-SA de ARASAAC) -->
-        <p class="text-xs text-gray-600 text-center pb-20">
-            Pictogramas: Sergio Palao · <a href="https://arasaac.org" target="_blank" rel="noopener" class="underline hover:text-gray-600">ARASAAC</a>
-            (Gobierno de Aragón) · Licencia <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.es" target="_blank" rel="noopener" class="underline hover:text-gray-600">CC BY-NC-SA</a>
-        </p>
+        <!-- Atribución obligatoria (licencia CC BY-SA 4.0 de Mulberry Symbols y OpenMoji) -->
+        {{ ui.pictogram_credits("pb-20") }}
 
     </main>
+    </div>
 
     <!-- Ajustes del comunicador (se guardan en este dispositivo) -->
     <dialog id="comm-settings" class="rounded-2xl p-0 max-w-lg w-[calc(100%-2rem)] shadow-2xl backdrop:bg-black/40">
@@ -128,10 +187,54 @@
                 <input type="checkbox" id="speak-on-tap" class="w-5 h-5">
                 Decir cada pictograma en voz alta al tocarlo
             </label>
-            <div class="flex justify-end">
+            <div class="flex flex-wrap justify-between gap-3">
+                <button type="button" onclick="openCustomize()"
+                    class="px-5 py-3 min-h-[48px] rounded-xl bg-white border-2 border-gray-300 text-gray-800 font-semibold hover:border-primary flex items-center gap-2">
+                    <i class="fas fa-pen" aria-hidden="true"></i> Personalizar el tablero
+                </button>
                 <button value="ok" class="px-6 py-3 min-h-[48px] rounded-xl bg-primary text-white font-semibold">Listo</button>
             </div>
         </form>
+    </dialog>
+
+    <!-- Tablero a medida del paciente (se guarda en su ficha: /api/aac/profile) -->
+    <dialog id="comm-custom" class="rounded-2xl p-0 max-w-2xl w-[calc(100%-2rem)] shadow-2xl backdrop:bg-black/40" aria-labelledby="custom-title">
+        <div class="p-6 text-left">
+            <h3 id="custom-title" class="text-xl font-bold text-gray-800 mb-1">Personalizar el tablero</h3>
+            <p class="text-gray-600 text-base mb-5">Se guarda para este paciente: los demás conservan su tablero.</p>
+
+            <section class="mb-6" aria-labelledby="custom-phrases-title">
+                <h4 id="custom-phrases-title" class="font-semibold text-gray-800 mb-1">Frases propias</h4>
+                <p class="text-gray-600 text-base mb-3">Nombres de familiares, su comida favorita… Aparecen en la pestaña «Mis frases» y se dicen con un toque.</p>
+                <form id="custom-phrase-form" class="flex gap-3 mb-3">
+                    <label for="custom-phrase-input" class="visually-hidden">Frase nueva</label>
+                    <input id="custom-phrase-input" type="text" maxlength="120" autocomplete="off" placeholder="Por ejemplo: Quiero llamar a Lucía"
+                        class="flex-1 min-w-0 min-h-[48px] rounded-xl border-2 border-gray-300 px-4 py-2 text-gray-900 focus:border-primary focus:outline-none">
+                    <button type="submit" class="px-5 py-3 min-h-[48px] rounded-xl bg-primary text-white font-semibold flex items-center gap-2">
+                        <i class="fas fa-plus" aria-hidden="true"></i> Añadir
+                    </button>
+                </form>
+                <ul id="custom-phrases" class="flex flex-col gap-2"></ul>
+            </section>
+
+            <section class="mb-5" aria-labelledby="custom-visible-title">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-1">
+                    <h4 id="custom-visible-title" class="font-semibold text-gray-800">Pictogramas visibles</h4>
+                    <button type="button" onclick="showAllPictograms()"
+                        class="px-4 py-2 min-h-[48px] rounded-xl bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300">Mostrar todos</button>
+                </div>
+                <p class="text-gray-600 text-base mb-3">Desmarca los que este paciente no usa. «Sí», «No» y «¡Ayuda!» siguen siempre en la barra rápida.</p>
+                <div id="custom-visibility" class="flex flex-col gap-2"></div>
+            </section>
+
+            <p id="custom-error" class="hidden mb-4 rounded-lg bg-red-50 text-red-800 px-4 py-3" role="alert"></p>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('comm-custom').close()"
+                    class="px-5 py-3 min-h-[48px] rounded-xl bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300">Cancelar</button>
+                <button type="button" id="custom-save" onclick="saveCustomize()"
+                    class="px-6 py-3 min-h-[48px] rounded-xl bg-primary text-white font-semibold">Guardar</button>
+            </div>
+        </div>
     </dialog>
 
     <!-- Audio Player Oculto -->
@@ -201,12 +304,14 @@
                     grammar: item.grammar ? JSON.parse(item.grammar) : {}
                 }));
 
+                await loadProfile();
                 renderCategories();
+                renderQuickBar();
 
-                // Seleccionar primera categoría por defecto
-                if (CONFIG.categories.length > 0) {
-                    selectCategory(CONFIG.categories[0].id);
-                }
+                // Seleccionar la primera categoría (con algún pictograma visible) por defecto
+                const first = visibleCategories()[0];
+                if (first) selectCategory(first.id);
+                else if (PROFILE.phrases.length) selectCategory(MINE_TAB);
             } catch (e) {
                 console.error("Error loading AAC config:", e);
                 DOM.tabs.innerHTML = '';
@@ -217,8 +322,287 @@
 
         // --- RENDERING ---
 
+        // Imagen (o icono) de un pictograma
+        function pictoHtml(item, imgCls, iconCls, size) {
+            const isImage = item.icon_src.includes('/') || item.icon_src.includes('.');
+            return isImage
+                ? `<img src="${item.icon_src}" alt="" width="${size}" height="${size}" decoding="async" class="${imgCls} object-contain pointer-events-none">`
+                : `<i class="fas ${item.icon_src} ${iconCls} pointer-events-none" aria-hidden="true"></i>`;
+        }
+
+        // --- BARRA RÁPIDA: Sí / No / ¡Ayuda! ---
+        const QUICK_IDS = ['yes', 'no', 'help_gen'];
+        const HELP_ID = 'help_gen';
+
+        function renderQuickBar() {
+            const bar = document.getElementById('quick-bar');
+            const items = QUICK_IDS.map((id) => CONFIG.items.find((i) => i.id === id)).filter(Boolean);
+            bar.classList.toggle('hidden', items.length === 0);
+            bar.innerHTML = items.map((item) => {
+                const help = item.id === HELP_ID;
+                const look = help
+                    ? 'quick-help bg-red-600 border-red-600 text-white hover:bg-red-700 active:bg-red-800'
+                    : 'bg-white border-gray-300 text-gray-800 hover:border-indigo-300 active:bg-gray-100';
+                // Sobre el rojo, la imagen va en una pastilla blanca para que se distinga
+                const pic = pictoHtml(item, 'w-10 h-10' + (help ? ' bg-white rounded-lg p-0.5' : ''), 'text-2xl', 40);
+                return `<button type="button" onclick="quickTap('${item.id}')"
+                    class="touch-card flex-1 min-w-0 min-h-[64px] px-3 rounded-xl border-2 font-bold text-lg sm:text-xl flex items-center justify-center gap-2 transition ${look}">
+                    ${pic}<span class="truncate">${help ? '¡Ayuda!' : item.label}</span></button>`;
+            }).join('');
+            // Con conexión se deja preparada la voz de «ayuda»: así suena al instante y también sin red
+            const help = items.find((i) => i.id === HELP_ID);
+            if (help && navigator.onLine) fetch(speakUrl(helpPhrase(help))).catch(() => {});
+        }
+
+        const speakUrl = (text) => `/api/speak/${encodeURIComponent(text)}`;
+        const helpPhrase = (item) => item.default_phrase || item.label;
+
+        function quickTap(itemId) {
+            const item = CONFIG.items.find((i) => i.id === itemId);
+            if (!item) return;
+            if (itemId !== HELP_ID) { addToSentence(itemId); return; }
+            // Pedir ayuda no espera a formar la frase: se dice ya (y no pasa por el filtro de temblor)
+            if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+            say(helpPhrase(item), { remember: false });
+        }
+
+        // --- FRASES RECIENTES: las últimas dichas con HABLAR, para repetirlas con un toque ---
+        const RECENT_TAB = '__recientes';
+        const MAX_RECENT = 8;
+        // Por paciente: en un equipo compartido no se mezclan las frases de uno con las de otro
+        const RECENT_KEY = 'rehab-comunicador-recientes:' + {{ (session.patient_id if session and session.patient_id else 'app') | tojson }};
+        let RECENT = [];
+        try {
+            const stored = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+            if (Array.isArray(stored)) RECENT = stored.filter((x) => typeof x === 'string').slice(0, MAX_RECENT);
+        } catch (e) { /* sin almacenamiento */ }
+
+        function saveRecent() {
+            try {
+                if (RECENT.length) localStorage.setItem(RECENT_KEY, JSON.stringify(RECENT));
+                else localStorage.removeItem(RECENT_KEY);
+            } catch (e) { /* sin almacenamiento */ }
+        }
+
+        function rememberPhrase(text) {
+            const hadTab = RECENT.length > 0;
+            // La más reciente primero, sin repetir
+            RECENT = [text, ...RECENT.filter((r) => r !== text)].slice(0, MAX_RECENT);
+            saveRecent();
+            if (!hadTab) renderCategories();
+            if (STATE.currentCategory === RECENT_TAB) renderRecent();
+        }
+
+        function clearRecent() {
+            RECENT = [];
+            saveRecent();
+            renderCategories();
+            const first = visibleCategories()[0];
+            if (first) selectCategory(first.id);
+            anunciar('Frases recientes borradas');
+        }
+
+        // Botón grande que dice una frase entera con un toque (recientes y frases propias)
+        function phraseButton(phrase, remember) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'touch-card col-span-full min-h-[72px] bg-white rounded-2xl border-2 border-gray-200 shadow-sm px-5 py-4 flex items-center gap-4 text-left hover:border-indigo-300 focus:outline-none focus:ring-4 focus:ring-indigo-300';
+            btn.setAttribute('aria-label', 'Decir: ' + phrase);
+            btn.innerHTML = '<i class="fas fa-volume-high text-2xl text-indigo-600" aria-hidden="true"></i>';
+            const text = document.createElement('span');
+            text.className = 'flex-1 text-xl md:text-2xl font-bold text-gray-800';
+            text.textContent = phrase;
+            btn.appendChild(text);
+            btn.addEventListener('click', () => say(phrase, { remember }));
+            return btn;
+        }
+
+        // --- TABLERO A MEDIDA DEL PACIENTE: frases propias y pictogramas ocultos ---
+        const MINE_TAB = '__mias';
+        let PROFILE = { hidden: [], phrases: [] };
+        const isHidden = (item) => PROFILE.hidden.includes(item.id);
+        // Una categoría sin ningún pictograma visible no ocupa pestaña
+        const visibleCategories = () => CONFIG.categories.filter(
+            (cat) => CONFIG.items.some((item) => item.category_id === cat.id && !isHidden(item)));
+        const textList = (value) => (Array.isArray(value) ? value.filter((x) => typeof x === 'string') : []);
+
+        async function loadProfile() {
+            try {
+                const res = await fetch('/api/aac/profile');
+                if (!res.ok) throw new Error(res.statusText);
+                const data = await res.json();
+                PROFILE = { hidden: textList(data.hidden), phrases: textList(data.phrases) };
+            } catch (e) {
+                // Sin perfil (sin conexión y sin copia): se muestra el tablero completo
+                console.warn('Tablero a medida no disponible:', e);
+            }
+        }
+
+        function renderMine() {
+            DOM.grid.innerHTML = '';
+            for (const phrase of PROFILE.phrases) DOM.grid.appendChild(phraseButton(phrase, false));
+        }
+
+        // Borrador del diálogo: no cambia nada hasta pulsar «Guardar»
+        const MAX_PHRASES = 40;
+        let DRAFT = { hidden: new Set(), phrases: [] };
+
+        function customError(text) {
+            const el = document.getElementById('custom-error');
+            el.textContent = text;
+            el.classList.toggle('hidden', !text);
+        }
+
+        function openCustomize() {
+            document.getElementById('comm-settings').close();
+            DRAFT = { hidden: new Set(PROFILE.hidden), phrases: [...PROFILE.phrases] };
+            renderDraftPhrases();
+            renderDraftVisibility();
+            customError('');
+            document.getElementById('custom-phrase-input').value = '';
+            document.getElementById('comm-custom').showModal();
+        }
+
+        function renderDraftPhrases() {
+            const list = document.getElementById('custom-phrases');
+            list.innerHTML = '';
+            DRAFT.phrases.forEach((phrase, index) => {
+                const li = document.createElement('li');
+                li.className = 'flex items-center gap-3 rounded-xl border border-gray-200 pl-4 pr-2 py-2';
+                const text = document.createElement('span');
+                text.className = 'flex-1 min-w-0 break-words text-gray-900';
+                text.textContent = phrase;
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'shrink-0 w-12 h-12 rounded-xl text-gray-700 hover:bg-red-50 hover:text-red-700 flex items-center justify-center';
+                remove.setAttribute('aria-label', 'Quitar la frase: ' + phrase);
+                remove.innerHTML = '<i class="fas fa-trash-alt" aria-hidden="true"></i>';
+                remove.addEventListener('click', () => { DRAFT.phrases.splice(index, 1); renderDraftPhrases(); });
+                li.append(text, remove);
+                list.appendChild(li);
+            });
+        }
+
+        document.getElementById('custom-phrase-form').addEventListener('submit', (event) => {
+            event.preventDefault();
+            const input = document.getElementById('custom-phrase-input');
+            const phrase = input.value.trim();
+            if (!phrase) return;
+            if (DRAFT.phrases.includes(phrase)) { customError('Esa frase ya está en la lista.'); return; }
+            if (DRAFT.phrases.length >= MAX_PHRASES) { customError(`Como máximo ${MAX_PHRASES} frases: quita alguna antes de añadir otra.`); return; }
+            DRAFT.phrases.push(phrase);
+            input.value = '';
+            customError('');
+            renderDraftPhrases();
+            input.focus();
+        });
+
+        function renderDraftVisibility() {
+            const box = document.getElementById('custom-visibility');
+            box.innerHTML = CONFIG.categories.map((cat) => {
+                const items = CONFIG.items.filter((item) => item.category_id === cat.id);
+                if (!items.length) return '';
+                const rows = items.map((item) => `
+                    <label class="flex items-center gap-3 min-h-[48px] px-3 py-2 rounded-xl border border-gray-200">
+                        <input type="checkbox" class="w-5 h-5 shrink-0" data-item="${item.id}" ${DRAFT.hidden.has(item.id) ? '' : 'checked'}>
+                        ${pictoHtml(item, 'w-8 h-8 shrink-0', 'text-xl w-8 text-center text-gray-700', 32)}
+                        <span class="min-w-0 break-words">${item.label}</span>
+                    </label>`).join('');
+                return `<details class="rounded-xl border border-gray-200" data-cat="${cat.id}">
+                    <summary class="min-h-[48px] px-4 py-3 cursor-pointer font-semibold text-gray-800 flex items-center justify-between gap-3">
+                        <span>${cat.label}</span><span class="text-sm font-medium text-gray-600" data-count></span>
+                    </summary>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 px-4 pb-4">${rows}</div>
+                </details>`;
+            }).join('');
+            updateVisibilityCounts();
+        }
+
+        function updateVisibilityCounts() {
+            document.querySelectorAll('#custom-visibility details').forEach((details) => {
+                const boxes = [...details.querySelectorAll('input[data-item]')];
+                const shown = boxes.filter((b) => b.checked).length;
+                details.querySelector('[data-count]').textContent =
+                    shown === boxes.length ? 'todos visibles' : `${shown} de ${boxes.length} visibles`;
+            });
+        }
+
+        document.getElementById('custom-visibility').addEventListener('change', (event) => {
+            const box = event.target;
+            if (!(box instanceof HTMLInputElement) || !box.dataset.item) return;
+            if (box.checked) DRAFT.hidden.delete(box.dataset.item);
+            else DRAFT.hidden.add(box.dataset.item);
+            updateVisibilityCounts();
+        });
+
+        function showAllPictograms() {
+            DRAFT.hidden.clear();
+            document.querySelectorAll('#custom-visibility input[data-item]').forEach((b) => { b.checked = true; });
+            updateVisibilityCounts();
+        }
+
+        async function saveCustomize() {
+            const button = document.getElementById('custom-save');
+            button.disabled = true;
+            try {
+                // Solo ids que existen: los de pictogramas retirados no se arrastran
+                const known = new Set(CONFIG.items.map((item) => item.id));
+                const res = await fetch('/api/aac/profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ hidden: [...DRAFT.hidden].filter((id) => known.has(id)), phrases: DRAFT.phrases }),
+                });
+                if (!res.ok) throw new Error(res.statusText);
+                const data = await res.json();
+                PROFILE = { hidden: textList(data.hidden), phrases: textList(data.phrases) };
+                fetch('/api/aac/profile').catch(() => {});   // deja al día la copia sin conexión
+                document.getElementById('comm-custom').close();
+                renderCategories();
+                const stillThere = STATE.currentCategory === RECENT_TAB
+                    || (STATE.currentCategory === MINE_TAB && PROFILE.phrases.length)
+                    || visibleCategories().some((cat) => cat.id === STATE.currentCategory);
+                const first = visibleCategories()[0];
+                selectCategory(stillThere ? STATE.currentCategory : first ? first.id : MINE_TAB);
+                anunciar('Tablero guardado');
+            } catch (e) {
+                console.error('Error al guardar el tablero:', e);
+                customError('No se pudo guardar. Comprueba la conexión y vuelve a intentarlo.');
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        function renderRecent() {
+            DOM.grid.innerHTML = '';
+            for (const phrase of RECENT) DOM.grid.appendChild(phraseButton(phrase, true));
+            const clear = document.createElement('button');
+            clear.type = 'button';
+            clear.className = 'col-span-full min-h-[48px] px-4 py-2 rounded-xl bg-gray-200 text-gray-800 font-bold hover:bg-gray-300 flex items-center justify-center gap-2';
+            clear.innerHTML = '<i class="fas fa-trash-alt" aria-hidden="true"></i> Borrar frases recientes';
+            clear.addEventListener('click', clearRecent);
+            DOM.grid.appendChild(clear);
+        }
+
         function renderCategories() {
-            DOM.tabs.innerHTML = CONFIG.categories.map(cat => `
+            const recentTab = RECENT.length ? `
+                <button onclick="selectCategory('${RECENT_TAB}')"
+                        class="category-tab flex-shrink-0 flex flex-col items-center justify-center w-28 h-24 rounded-2xl bg-white border-2 border-gray-100 shadow-sm transition hover:bg-gray-50"
+                        style="color: #374151" id="tab-${RECENT_TAB}" data-color="#e0e7ff">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center mb-1 text-2xl" style="background-color: #e0e7ff">
+                        <i class="fas fa-history" aria-hidden="true"></i>
+                    </div>
+                    <span class="text-sm font-bold text-gray-700 text-center leading-tight px-1">Recientes</span>
+                </button>` : '';
+            const mineTab = PROFILE.phrases.length ? `
+                <button onclick="selectCategory('${MINE_TAB}')"
+                        class="category-tab flex-shrink-0 flex flex-col items-center justify-center w-28 h-24 rounded-2xl bg-white border-2 border-gray-100 shadow-sm transition hover:bg-gray-50"
+                        style="color: #374151" id="tab-${MINE_TAB}" data-color="#fef3c7">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center mb-1 text-2xl" style="background-color: #fef3c7">
+                        <i class="fas fa-star" aria-hidden="true"></i>
+                    </div>
+                    <span class="text-sm font-bold text-gray-700 text-center leading-tight px-1">Mis frases</span>
+                </button>` : '';
+            DOM.tabs.innerHTML = mineTab + recentTab + visibleCategories().map(cat => `
                 <button onclick="selectCategory('${cat.id}')" 
                         class="category-tab flex-shrink-0 flex flex-col items-center justify-center w-28 h-24 rounded-2xl bg-white border-2 border-gray-100 shadow-sm transition hover:bg-gray-50"
                         style="color: ${invertColor(cat.color, true)}" 
@@ -231,10 +615,24 @@
                     <span class="text-sm font-bold text-gray-700 text-center leading-tight px-1">${cat.label}</span>
                 </button>
             `).join('');
+            markActiveTab();
+        }
+
+        function markActiveTab() {
+            document.querySelectorAll('.category-tab').forEach(el => {
+                const active = el.id === `tab-${STATE.currentCategory}`;
+                el.classList.toggle('active', active);
+                el.setAttribute('aria-pressed', String(active));
+                el.style.backgroundColor = active ? el.dataset.color : 'white';
+            });
         }
 
         function renderPictograms(categoryId) {
-            const items = CONFIG.items.filter(item => item.category_id === categoryId);
+            const items = CONFIG.items.filter(item => item.category_id === categoryId && !isHidden(item));
+            if (!items.length) {
+                DOM.grid.innerHTML = '<p class="col-span-full text-center text-gray-600 py-8">No hay pictogramas visibles aquí. Se eligen en Ajustes → «Personalizar el tablero».</p>';
+                return;
+            }
 
             DOM.grid.innerHTML = items.map(item => {
                 const isImage = item.icon_src.includes('/') || item.icon_src.includes('.');
@@ -257,22 +655,11 @@
         // --- LOGIC ---
 
         function selectCategory(catId) {
-            // Update UI tabs
-            document.querySelectorAll('.category-tab').forEach(el => {
-                el.classList.remove('active', 'bg-gray-100', 'ring-2', 'ring-offset-2');
-                el.style.backgroundColor = 'white';
-            });
-
-            const activeTab = document.getElementById(`tab-${catId}`);
-            if (activeTab) {
-                activeTab.classList.add('active');
-                // Subtle background hint
-                const color = activeTab.dataset.color;
-                activeTab.style.backgroundColor = color;
-            }
-
             STATE.currentCategory = catId;
-            renderPictograms(catId);
+            markActiveTab();
+            if (catId === RECENT_TAB) renderRecent();
+            else if (catId === MINE_TAB) renderMine();
+            else renderPictograms(catId);
         }
 
         function addToSentence(itemId) {
@@ -347,17 +734,25 @@
             return buildPhrase(items);
         }
 
-        async function speakSentence() {
-            const text = DOM.display.textContent;
-            if (!text || text === DOM.placeholder.textContent) return;
+        function speakSentence() {
+            if (!STATE.sentenceItems.length) return;
+            return say(constructPhrase(STATE.sentenceItems));
+        }
 
-            // Visual feedback
-            DOM.display.classList.add('ring-4', 'ring-indigo-300');
-            setTimeout(() => DOM.display.classList.remove('ring-4', 'ring-indigo-300'), 1000);
+        // Dice un texto en voz alta. remember: se guarda en «Recientes» (no la petición de ayuda).
+        let speakingTurn = 0;
+        async function say(text, { remember = true } = {}) {
+            if (!text) return;
+            if (remember) rememberPhrase(text);
+
+            // El visor queda marcado mientras suena la voz (solo cuenta la última frase pedida)
+            const turn = ++speakingTurn;
+            DOM.display.classList.add('speaking');
+            const onEnd = () => { if (turn === speakingTurn) DOM.display.classList.remove('speaking'); };
 
             // Voz del servidor (Piper) o, si no está disponible, la del dispositivo (static/js/voice.js).
             // Sin parámetro anti-caché: así una frase ya dicha puede repetirse sin conexión.
-            const used = await playVoice(DOM.audio, `/api/speak/${encodeURIComponent(text)}`, text);
+            const used = await playVoice(DOM.audio, speakUrl(text), text, { onEnd });
             if (used === 'server') showStatus('');
             else if (used === 'device') showStatus('Sin conexión con el servidor: usando la voz del dispositivo.', 'warn');
             else showStatus('No se pudo reproducir la voz. Comprueba la conexión.', 'warn');

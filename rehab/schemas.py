@@ -62,6 +62,42 @@ class ChallengeComplete(_Body):
     patient_id: Optional[str] = None  # ignorado: se usa el paciente de la sesión
 
 
+def _clean_list(value: Any, max_items: int, max_chars: int) -> Optional[list]:
+    """Lista de textos sin espacios sobrantes, vacíos ni repetidos (se conserva el orden)."""
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        raise ValueError("se esperaba una lista")
+    out: list = []
+    for item in value:
+        if not isinstance(item, str):
+            raise ValueError("se esperaba texto")
+        item = item.strip()
+        if len(item) > max_chars:
+            raise ValueError("texto demasiado largo")
+        if item and item not in out:
+            out.append(item)
+    if len(out) > max_items:
+        raise ValueError("demasiados elementos")
+    return out
+
+
+class AacProfile(_Body):
+    """Comunicador a medida del paciente. Cada lista enviada sustituye a la guardada."""
+    hidden: Optional[list] = None    # ids de pictogramas que no se muestran
+    phrases: Optional[list] = None   # frases propias (nombres de familiares, comida favorita…)
+
+    @field_validator("hidden", mode="before")
+    @classmethod
+    def clean_hidden(cls, v: Any) -> Optional[list]:
+        return _clean_list(v, 400, 64)
+
+    @field_validator("phrases", mode="before")
+    @classmethod
+    def clean_phrases(cls, v: Any) -> Optional[list]:
+        return _clean_list(v, 40, 120)
+
+
 class PatientCreate(_Body):
     name: str = Field(min_length=1, max_length=80)
     age: Optional[int] = Field(default=None, ge=0, le=130)
