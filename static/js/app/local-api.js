@@ -20,6 +20,14 @@ var RehabLocalApi = (function () {
     'use strict';
 
     const GAME_PREFIX = 'game_';
+    // Igual que GAME_NAMES y GAME_LEVELS de database.py
+    const GAME_NAMES = {
+        game_naming: '¿Qué es?', game_streak: 'Palabras seguidas', game_sustain: 'Voz larga',
+        game_phrase: 'Completa la frase', game_match: 'Escucha y elige', game_minpairs: 'Palabras parecidas',
+        game_sort: 'Clasificar palabras', game_pairs: 'Parejas', game_maze: 'Laberinto de voz',
+        game_speed: 'Ronda rápida', game_memory: 'Memoria',
+    };
+    const GAME_LEVELS = 3;
     const SPEECH_PROFILE_DEFAULTS = { disorder: '', severity: '', max_recording_s: 12, pause_s: 1.8, tolerance: 0, slow_voice: true };
     const DISORDERS = ['', 'afasia', 'disartria', 'apraxia', 'mixto', 'otro'];
     const SEVERITIES = ['', 'leve', 'moderada', 'grave'];
@@ -34,7 +42,7 @@ var RehabLocalApi = (function () {
         daily_streak_30: { name: 'Racha de 30 días', description: '¡Un mes completo de práctica!', icon: '👑', points: 300 },
         level_up: { name: 'Subir de Nivel', description: 'Avanzaste al siguiente nivel', icon: '⬆️', points: 25 },
         phrase_master: { name: 'Maestro de Frases', description: 'Completaste 10 frases correctamente', icon: '💬', points: 80 },
-        speed_demon: { name: 'Velocista', description: 'Completaste 5 palabras en menos de 1 minuto', icon: '⚡', points: 40 },
+        speed_demon: { name: 'Buena Racha', description: 'Dijiste 5 palabras bien seguidas', icon: '⚡', points: 40 },
         comeback_kid: { name: 'Nunca Rendirse', description: 'Mejoraste una palabra difícil después de 5 intentos', icon: '🦸', points: 60 },
         explorer: { name: 'Explorador', description: 'Probaste todas las categorías', icon: '🗺️', points: 50 },
         night_owl: { name: 'Búho Nocturno', description: 'Practicaste después de las 10pm', icon: '🦉', points: 15 },
@@ -48,7 +56,7 @@ var RehabLocalApi = (function () {
         { type: 'perfect_score', title: 'Perfección', description: 'Consigue {count} puntuaciones perfectas (>90%)', count: 5, points: 30 },
         { type: 'category_focus', title: 'Enfoque', description: "Practica {count} palabras de la categoría '{category}'", count: 8, category: null, points: 25 },
         { type: 'level_challenge', title: 'Desafío de Nivel', description: 'Completa {count} palabras del nivel {level}', count: 5, level: null, points: 35 },
-        { type: 'time_challenge', title: 'Contra Reloj', description: 'Completa {count} palabras en menos de 5 minutos', count: 8, points: 40 },
+        { type: 'review_words', title: 'Repaso', description: 'Repasa {count} palabras de las que más te cuestan, sin prisa', count: 8, points: 40 },
     ];
 
     const LEVELS = [
@@ -685,6 +693,8 @@ var RehabLocalApi = (function () {
             const score = rec.score ?? 0;
             const isSpeech = !String(rec.word_id ?? '').startsWith(GAME_PREFIX);
             if (isSpeech && isAttemptCorrect(score, rec.is_correct)) unlockAchievement(patientId, 'first_word');
+            const best = isObj(rec.feedback) ? rec.feedback.best_streak : null;
+            if (rec.word_id === 'game_streak' && Number.isInteger(best) && best >= 5) unlockAchievement(patientId, 'speed_demon');
             const streak = currentStreak(patientId);
             if (streak >= 3) unlockAchievement(patientId, 'daily_streak_3');
             if (streak >= 7) unlockAchievement(patientId, 'daily_streak_7');
@@ -710,6 +720,29 @@ var RehabLocalApi = (function () {
             if (points > 0) addPoints(rec.patient_id, points, reasons.join(', '));
             checkAchievements(rec.patient_id, rec);
             return points;
+        }
+
+        function getGameStats(patientId) {
+            /** @type {Map<string, {plays: number, sum: number, best: number, last: number, level: number|null}>} */
+            const stats = new Map();
+            for (const p of all(`SELECT word_id, score, feedback FROM progress
+                                 WHERE patient_id = ? AND word_id LIKE '${GAME_PREFIX}%' ORDER BY created_at`, [patientId])) {
+                const s = stats.get(p.word_id) || { plays: 0, sum: 0, best: 0, last: 0, level: null };
+                const score = p.score || 0;
+                s.plays += 1;
+                s.sum += score;
+                s.best = Math.max(s.best, score);
+                s.last = score;
+                let level = null;
+                try { const fb = p.feedback ? JSON.parse(p.feedback) : {}; level = isObj(fb) ? fb.level : null; } catch (e) { level = null; }
+                s.level = Number.isInteger(level) && level >= 1 && level <= GAME_LEVELS ? level : null;
+                stats.set(p.word_id, s);
+            }
+            return [...stats.keys()].sort().map((game) => {
+                const s = stats.get(game);
+                return { game, name: GAME_NAMES[game] || game, plays: s.plays, avg_score: pyRound(s.sum / s.plays),
+                         best_score: pyRound(s.best), last_score: pyRound(s.last), last_level: s.level };
+            });
         }
 
         function getDailyChallenge() {
@@ -867,6 +900,7 @@ var RehabLocalApi = (function () {
             }],
             ['GET', /^\/api\/stats\/([^/]+)$/, () => getDetailedStats(currentPatient())],
             ['GET', /^\/api\/games\/level\/([^/]+)$/, () => getPlayerLevel(currentPatient())],
+            ['GET', /^\/api\/games\/summary\/([^/]+)$/, () => ({ games: getGameStats(currentPatient()) })],
             ['GET', /^\/api\/games\/daily-challenge$/, () => getDailyChallenge()],
             ['GET', /^\/api\/games\/achievements\/([^/]+)$/, () => getAchievements(currentPatient())],
             ['POST', /^\/api\/games\/complete-challenge$/, (m, q, body) => {

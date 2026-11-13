@@ -73,8 +73,8 @@ class GameEngine:
                 "points": 80
             },
             "speed_demon": {
-                "name": "Velocista",
-                "description": "Completaste 5 palabras en menos de 1 minuto",
+                "name": "Buena Racha",
+                "description": "Dijiste 5 palabras bien seguidas",
                 "icon": "⚡",
                 "points": 40
             },
@@ -149,9 +149,9 @@ class GameEngine:
                 "points": 35
             },
             {
-                "type": "time_challenge",
-                "title": "Contra Reloj",
-                "description": "Completa {count} palabras en menos de 5 minutos",
+                "type": "review_words",
+                "title": "Repaso",
+                "description": "Repasa {count} palabras de las que más te cuestan, sin prisa",
                 "count": 8,
                 "points": 40
             }
@@ -257,6 +257,12 @@ class GameEngine:
         if is_speech and is_attempt_correct(score, progress_data.get("is_correct")):
             self.db.unlock_achievement(patient_id, "first_word")
         
+        # Juego «Palabras seguidas»: 5 bien dichas sin pasar ninguna
+        feedback = progress_data.get("feedback")
+        best = feedback.get("best_streak") if isinstance(feedback, dict) else None
+        if progress_data.get("word_id") == "game_streak" and isinstance(best, int) and best >= 5:
+            self.db.unlock_achievement(patient_id, "speed_demon")
+
         # Rachas
         streak = self._get_current_streak(patient_id)
         if streak >= 3:
@@ -456,52 +462,3 @@ class GameEngine:
             "next_level": next_level[1] if next_level else None,
             "points_to_next": (next_level[0] - total_points) if next_level else 0
         }
-    
-    def get_mini_game(self, game_type: str = "random") -> Dict:
-        """Obtiene un mini juego"""
-        games = [
-            {
-                "type": "word_match",
-                "name": "Emparejar Palabras",
-                "description": "Escucha y selecciona la palabra correcta",
-                "icon": "🎯",
-                "difficulty": 1
-            },
-            {
-                "type": "category_sort",
-                "name": "Clasificar Palabras",
-                "description": "Arrastra cada palabra a su categoría",
-                "icon": "📦",
-                "difficulty": 2
-            },
-            {
-                "type": "complete_phrase",
-                "name": "Completa la Frase",
-                "description": "Di la palabra que falta en la frase",
-                "icon": "💬",
-                "difficulty": 2
-            },
-            {
-                "type": "speed_round",
-                "name": "Ronda Rápida",
-                "description": "Di tantas palabras como puedas en 60 segundos",
-                "icon": "⚡",
-                "difficulty": 3
-            },
-            {
-                "type": "memory_game",
-                "name": "Memoria",
-                "description": "Recuerda y repite la secuencia de palabras",
-                "icon": "🧠",
-                "difficulty": 3
-            }
-        ]
-        
-        if game_type == "random":
-            return random.choice(games)
-        
-        for game in games:
-            if game["type"] == game_type:
-                return game
-        
-        return games[0]

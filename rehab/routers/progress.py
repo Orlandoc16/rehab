@@ -51,6 +51,12 @@ def get_player_level(patient_id: str, request: Request):
     return game_engine.get_player_level(current_patient(request))
 
 
+@router.get("/games/summary/{patient_id}")
+def get_game_summary(patient_id: str, request: Request):
+    """Partidas de cada juego del paciente activo (última nota y dificultad, mejor nota)"""
+    return {"games": db.get_game_stats(current_patient(request))}
+
+
 @router.get("/games/daily-challenge")
 def get_daily_challenge():
     """Obtiene el desafío diario"""

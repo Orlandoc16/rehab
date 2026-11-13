@@ -1,6 +1,13 @@
 {% extends "base.html" %}
 {% import "partials/_ui.html" as ui with context %}
 
+{% block head %}
+    {%- if not app_mode %}
+    <!-- Sílabas para la pista de «¿Qué es?» (en la app ya lo carga base.html) -->
+    <script src="{{ asset('js/syllables.js') }}"></script>
+    {%- endif %}
+{% endblock %}
+
 {% block body %}
 <body class="font-poppins bg-gradient-to-br from-indigo-50 via-white to-purple-50 min-h-screen">
     <!-- Header -->
@@ -8,8 +15,8 @@
 
     <main class="container mx-auto px-4 py-8 pt-24 md:pt-28">
         <h1 class="text-3xl md:text-4xl font-extrabold text-gray-900 mb-8 text-center leading-tight">
-            <span class="bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">Rehabilitación</span>
-            Gamificada
+            <span class="bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">Juegos</span>
+            para practicar
         </h1>
 
         <!-- Player Level Card -->
@@ -53,136 +60,15 @@
                 <div class="text-2xl font-bold text-orange-600">
                     +<span id="challenge-points">0</span> puntos
                 </div>
-                <a href="/practice"
+                <a href="/practice" id="challenge-link"
                     class="bg-orange-700 text-white px-6 py-3 min-h-[48px] rounded-xl font-medium hover:bg-orange-800 transition">
                     <i class="fas fa-play mr-2"></i>Empezar
                 </a>
             </div>
         </div>
 
-        <!-- Mini Games Grid -->
-        <h3 class="text-2xl font-bold text-gray-800 mb-6">Mini Juegos</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-            <!-- Word Match Game -->
-            <div class="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition group">
-                <div
-                    class="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
-                    <span class="text-3xl">🎯</span>
-                </div>
-                <h4 class="text-lg font-bold text-gray-800 mb-2">Emparejar Palabras</h4>
-                <p class="text-gray-600 text-sm mb-4">Escucha y selecciona la palabra correcta entre varias opciones.
-                </p>
-                <div class="flex items-center justify-between">
-                    <span class="text-sm text-gray-600">Dificultad: ⭐</span>
-                    <button onclick="startGame('word_match')"
-                        class="bg-blue-700 text-white px-5 py-2 min-h-[48px] rounded-lg font-semibold hover:bg-blue-800 transition">
-                        Jugar
-                    </button>
-                </div>
-            </div>
-
-            <!-- Speed Round -->
-            <div class="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition group">
-                <div
-                    class="w-14 h-14 bg-yellow-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
-                    <span class="text-3xl">⚡</span>
-                </div>
-                <h4 class="text-lg font-bold text-gray-800 mb-2">Ronda Rápida</h4>
-                <p class="text-gray-600 text-sm mb-4">Lee en voz alta tantas palabras como puedas en 90 segundos.</p>
-                <div class="flex items-center justify-between">
-                    <span class="text-sm text-gray-600">Dificultad: ⭐⭐⭐</span>
-                    <button onclick="startGame('speed_round')"
-                        class="bg-amber-700 text-white px-5 py-2 min-h-[48px] rounded-lg font-semibold hover:bg-amber-800 transition">
-                        Jugar
-                    </button>
-                </div>
-            </div>
-
-            <!-- Memory Game -->
-            <div class="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition group">
-                <div
-                    class="w-14 h-14 bg-purple-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
-                    <span class="text-3xl">🧠</span>
-                </div>
-                <h4 class="text-lg font-bold text-gray-800 mb-2">Memoria</h4>
-                <p class="text-gray-600 text-sm mb-4">Mira y escucha las palabras, y repítelas en el mismo orden.</p>
-                <div class="flex items-center justify-between">
-                    <span class="text-sm text-gray-600">Dificultad: ⭐⭐⭐</span>
-                    <button onclick="startGame('memory')"
-                        class="bg-purple-700 text-white px-5 py-2 min-h-[48px] rounded-lg font-semibold hover:bg-purple-800 transition">
-                        Jugar
-                    </button>
-                </div>
-            </div>
-
-            <!-- Category Sort -->
-            <div class="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition group">
-                <div
-                    class="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
-                    <span class="text-3xl">📦</span>
-                </div>
-                <h4 class="text-lg font-bold text-gray-800 mb-2">Clasificar Palabras</h4>
-                <p class="text-gray-600 text-sm mb-4">Elige a qué grupo pertenece cada palabra.</p>
-                <div class="flex items-center justify-between">
-                    <span class="text-sm text-gray-600">Dificultad: ⭐⭐</span>
-                    <button onclick="startGame('category_sort')"
-                        class="bg-green-700 text-white px-5 py-2 min-h-[48px] rounded-lg font-semibold hover:bg-green-800 transition">
-                        Jugar
-                    </button>
-                </div>
-            </div>
-
-            <!-- Complete Phrase -->
-            <div class="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition group">
-                <div
-                    class="w-14 h-14 bg-pink-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
-                    <span class="text-3xl">💬</span>
-                </div>
-                <h4 class="text-lg font-bold text-gray-800 mb-2">Completa la Frase</h4>
-                <p class="text-gray-600 text-sm mb-4">Elige la palabra que falta en la frase.</p>
-                <div class="flex items-center justify-between">
-                    <span class="text-sm text-gray-600">Dificultad: ⭐⭐</span>
-                    <button onclick="startGame('complete_phrase')"
-                        class="bg-pink-700 text-white px-5 py-2 min-h-[48px] rounded-lg font-semibold hover:bg-pink-800 transition">
-                        Jugar
-                    </button>
-                </div>
-            </div>
-
-            <!-- Free Practice -->
-            <div class="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition group">
-                <div
-                    class="w-14 h-14 bg-indigo-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
-                    <span class="text-3xl">🎤</span>
-                </div>
-                <h4 class="text-lg font-bold text-gray-800 mb-2">Práctica Libre</h4>
-                <p class="text-gray-600 text-sm mb-4">Practica las palabras que quieras sin límite de tiempo.</p>
-                <div class="flex items-center justify-between">
-                    <span class="text-sm text-gray-600">Sin dificultad</span>
-                    <a href="/practice"
-                        class="bg-indigo-500 text-white px-4 py-2 rounded-lg hover:bg-indigo-600 transition">
-                        Ir
-                    </a>
-                </div>
-            </div>
-
-            <!-- Voice Maze Game (NEW) -->
-            <div class="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition group">
-                <div
-                    class="w-14 h-14 bg-teal-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
-                    <span class="text-3xl">🗺️</span>
-                </div>
-                <h4 class="text-lg font-bold text-gray-800 mb-2">Laberinto de Voz</h4>
-                <p class="text-gray-600 text-sm mb-4">Guía al mono con tu voz: «Arriba», «Abajo»… (o con las flechas).</p>
-                <div class="flex items-center justify-between">
-                    <span class="text-sm text-gray-600">Dificultad: ⭐⭐⭐</span>
-                    <button onclick="startGame('maze')"
-                        class="bg-teal-700 text-white px-5 py-2 min-h-[48px] rounded-lg font-semibold hover:bg-teal-800 transition">
-                        Jugar
-                    </button>
-                </div>
-            </div>
-        </div>
+        <!-- Juegos: las tarjetas las pinta games.js (grupos, última nota y dificultad) -->
+        <div id="games-list"></div>
 
         <!-- Achievements Section -->
         <h3 class="text-2xl font-bold text-gray-800 mb-6">

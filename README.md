@@ -54,6 +54,31 @@ Una aplicación web moderna para ayudar a personas en rehabilitación vocal a pr
 - **Desafíos diarios** para mantener motivación
 - **Rachas de práctica** con bonus
 
+### 🕹️ Juegos (sin reloj y sin castigo)
+Nueve juegos en `/games`, agrupados por lo que trabajan:
+
+| Grupo | Juego | Qué se hace |
+| --- | --- | --- |
+| Hablar | **¿Qué es?** | Decir el nombre del dibujo. Pistas graduadas: primera sílaba y, si hace falta, la palabra entera para repetirla. |
+| Hablar | **Palabras seguidas** | Decir diez palabras al ritmo de cada uno; cuenta la racha (sustituye a la «Ronda rápida» contrarreloj). |
+| Hablar | **Voz larga** | Sostener «aaaa» para llevar un barco a la meta (3, 5 u 8 segundos). Solo mide el volumen: no graba ni envía audio. |
+| Hablar | **Completa la frase** | Elegir la palabra que falta y después decir la frase entera. |
+| Escuchar | **Escucha y elige** | Oír una palabra y tocar su dibujo; en el nivel 3 las opciones se parecen. |
+| Escuchar | **Palabras parecidas** | Pares mínimos («pato / gato»): cuál se ha oído, o si dos palabras son iguales o distintas. |
+| Escuchar | **Clasificar palabras** | A qué grupo pertenece; en el nivel 3 alterna con «¿cuál no pertenece?». |
+| Ocio | **Parejas** | Encontrar parejas de pictogramas y nombrarlas (sustituye a «Memoria»). |
+| Ocio | **Laberinto de voz** | Guiar al mono diciendo «Arriba», «Abajo»… |
+
+- **Dificultad 1-3 que se ajusta sola**: sube si la última partida pasó del 85 % y baja si quedó por
+  debajo del 50 %. El terapeuta puede cambiarla antes de empezar.
+- **El micrófono ayuda, no juzga**: en los juegos de hablar siempre hay un botón «La dije bien» para
+  el paciente o quien le acompaña, así que funcionan aunque no haya reconocimiento de voz.
+- **Repaso**: «¿Qué es?» y «Palabras seguidas» sacan más a menudo las palabras que el paciente falla
+  en la práctica.
+- **Sin rojo ni tachados**: un fallo se señala con suavidad y se puede seguir probando.
+- Las partidas se guardan aparte de los intentos de pronunciación (no alteran el progreso ni la
+  repetición espaciada) y salen en una sección propia del informe.
+
 ### 📊 Seguimiento de Progreso
 - **Estadísticas detalladas** por sesión y acumuladas
 - **Gráficos de evolución** temporal
@@ -457,6 +482,7 @@ voz del propio dispositivo. Las voces de Edge TTS solo se usan con `TTS_ONLINE=1
 ### Juegos
 - `GET /api/games/daily-challenge` - Desafío del día
 - `GET /api/games/achievements/{patient_id}` - Logros
+- `GET /api/games/summary/{patient_id}` - Partidas de cada juego (última nota y dificultad, mejor nota)
 
 ---
 

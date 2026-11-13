@@ -378,6 +378,38 @@ class ReportReviewAndBoardTest(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         return r.json()["id"]
 
+    def test_game_summary_and_report(self):
+        """Resumen de partidas (para ajustar la dificultad) y sección de juegos del informe."""
+        self.assertEqual(self.c.get("/api/games/summary/default").json(), {"games": []})
+
+        def play(game, score, feedback=None):
+            r = self.c.post("/api/progress", json={"word_id": game, "score": score, "feedback": feedback})
+            self.assertEqual(r.status_code, 200)
+
+        play("game_naming", 50, {"level": 1})
+        play("game_naming", 90, {"level": 2})
+        play("game_memory", 40, {"level": 6})                 # juego retirado, nivel no válido
+        play("game_streak", 60, {"level": 1, "best_streak": 4})
+        self.attempt(self.words[0], 90, True)                 # la práctica no es una partida
+
+        games = {g["game"]: g for g in self.c.get("/api/games/summary/default").json()["games"]}
+        self.assertEqual(sorted(games), ["game_memory", "game_naming", "game_streak"])
+        self.assertEqual(games["game_naming"], {"game": "game_naming", "name": "¿Qué es?", "plays": 2, "avg_score": 70,
+                                                "best_score": 90, "last_score": 90, "last_level": 2})
+        self.assertIsNone(games["game_memory"]["last_level"])
+        self.assertEqual(games["game_memory"]["name"], "Memoria")
+
+        unlocked = lambda: {a["id"] for a in self.c.get("/api/games/achievements/default").json()["unlocked"]}
+        self.assertNotIn("speed_demon", unlocked())
+        play("game_streak", 80, {"level": 1, "best_streak": 5})
+        self.assertIn("speed_demon", unlocked())
+
+        html = self.c.get("/report").text
+        for text in ('id="r-juegos"', "¿Qué es?", "Palabras seguidas", "Memoria"):
+            with self.subTest(text=text):
+                self.assertIn(text, html)
+        self.assertEqual(app_module.db.get_report(self.pid, 30)["summary"]["attempts"], 1)
+
     def test_report_page(self):
         empty = self.c.get("/report")
         self.assertEqual(empty.status_code, 200)

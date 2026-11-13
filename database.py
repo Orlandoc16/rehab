@@ -92,6 +92,15 @@ SPEECH_PROFILE_DEFAULTS = {"disorder": "", "severity": "", "max_recording_s": 12
 
 GAME_PREFIX = "game_"   # los juegos se guardan en Progress con word_id "game_..."
 
+# Nombre de cada juego en el informe (también los retirados: siguen en el historial)
+GAME_NAMES = {
+    "game_naming": "¿Qué es?", "game_streak": "Palabras seguidas", "game_sustain": "Voz larga",
+    "game_phrase": "Completa la frase", "game_match": "Escucha y elige", "game_minpairs": "Palabras parecidas",
+    "game_sort": "Clasificar palabras", "game_pairs": "Parejas", "game_maze": "Laberinto de voz",
+    "game_speed": "Ronda rápida", "game_memory": "Memoria",
+}
+GAME_LEVELS = 3         # niveles de dificultad de cada juego (1 = el más fácil)
+
 
 def is_attempt_correct(score: Optional[float], auto_correct: Optional[bool] = None,
                        therapist_correct: Optional[bool] = None) -> bool:
@@ -1422,6 +1431,36 @@ class Database:
         finally:
             session.close()
 
+    def get_game_stats(self, patient_id: str, days: int = 0) -> List[Dict]:
+        """Partidas de cada juego (days: periodo; 0 = todo). `last_level` es la dificultad de la
+        última partida: con ella y `last_score` la página elige la dificultad de la siguiente."""
+        session = self.SessionLocal()
+        try:
+            query = session.query(Progress).filter(Progress.patient_id == patient_id,
+                                                   Progress.word_id.like(GAME_PREFIX + "%"))
+            if days > 0:
+                query = query.filter(Progress.created_at >= _utcnow() - timedelta(days=days))
+            stats: Dict[str, Dict] = {}
+            for p in query.order_by(Progress.created_at).all():
+                s = stats.setdefault(p.word_id, {"plays": 0, "sum": 0.0, "best": 0.0, "last": 0.0, "level": None})
+                score = p.score or 0
+                s["plays"] += 1
+                s["sum"] += score
+                s["best"] = max(s["best"], score)
+                s["last"] = score
+                try:
+                    level = (json.loads(p.feedback) if p.feedback else {}).get("level")
+                except (ValueError, AttributeError):
+                    level = None
+                ok = isinstance(level, int) and not isinstance(level, bool) and 1 <= level <= GAME_LEVELS
+                s["level"] = level if ok else None
+            return [{"game": game, "name": GAME_NAMES.get(game, game), "plays": s["plays"],
+                     "avg_score": round(s["sum"] / s["plays"]), "best_score": round(s["best"]),
+                     "last_score": round(s["last"]), "last_level": s["level"]}
+                    for game, s in sorted(stats.items())]
+        finally:
+            session.close()
+
     def get_report(self, patient_id: str, days: int = 30) -> Optional[Dict]:
         """Datos del informe imprimible del paciente. days: periodo (0 = todo el historial).
         Las fechas se agrupan en la hora local del servidor (el de la clínica)."""
@@ -1511,6 +1550,7 @@ class Database:
                 "difficult": difficult,
                 "mastered": mastered,
                 "therapist": {"rated": rated, "overridden": overridden},
+                "games": self.get_game_stats(patient_id, days),
             }
         finally:
             session.close()

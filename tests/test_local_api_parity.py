@@ -66,6 +66,12 @@ def steps(words, games=("game_match", "game_maze")):
         (games[0], 80, None, 45000, {"game": "match"}),
         (games[1], 100, None, None, None),
     ]
+    # Al final (no mueve los índices que usan las valoraciones): partidas con dificultad y racha
+    late_games = [
+        (games[0], 62.5, None, None, {"level": 2, "first_try": 5}),
+        (games[0], 87.5, None, None, {"level": 9}),               # nivel no válido -> null
+        ("game_streak", 70, None, 30000, {"level": 1, "best_streak": 5}),
+    ]
     first_attempt = len(s)
     for word_id, score, ok, dur, fb in attempts:
         body = {"word_id": word_id, "score": score, "attempt_number": 1, "transcription": "algo  ",
@@ -102,6 +108,10 @@ def steps(words, games=("game_match", "game_maze")):
         ("POST", "/api/aac/profile", {"hidden": [1, 2]}),                          # 422
         ("POST", "/api/aac/profile", {"phrases": [f"frase {i}" for i in range(41)]}),   # 422
         ("GET", "/api/aac/profile", None),
+        ("GET", "/api/games/summary/default", None),
+        *[("POST", "/api/progress", {"word_id": g, "score": sc, "feedback": fb, **({"duration_ms": d} if d else {})})
+          for g, sc, _ok, d, fb in late_games],
+        ("GET", "/api/games/summary/default", None),
         ("GET", "/api/games/level/default", None),
         ("GET", "/api/games/achievements/default", None),
         ("POST", "/api/speech-settings", {"disorder": "afasia", "tolerance": -5, "pause_s": 2.5}),
@@ -231,6 +241,8 @@ class PythonServer:
                              "total_points": db.get_total_points(pid)}
             if p.startswith("/api/stats/"):
                 return 200, db.get_detailed_stats(pid)
+            if p.startswith("/api/games/summary/"):
+                return 200, {"games": db.get_game_stats(pid)}
             if p.startswith("/api/games/level/"):
                 return 200, ge.get_player_level(pid)
             if p.startswith("/api/games/achievements/"):

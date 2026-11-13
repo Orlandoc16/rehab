@@ -11,6 +11,15 @@
         ],
         "createdAt": "2026-11-09T19:10:14.460Z",
         "reason": "Claude: #word-image is hidden (class hidden) until JS sets src for a word that has a pictogram; never shown empty"
+      },
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "static/js/games.js"
+        ],
+        "createdAt": "2026-11-13T10:56:23.948Z",
+        "reason": "Agent: flat text-indigo-800 on white, no gradient or dark ground; indigo is the app's existing brand colour (primary #4f46e5 in tailwind.config.js)"
       }
     ]
   }

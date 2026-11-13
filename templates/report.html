@@ -225,6 +225,33 @@
             </section>
             {% endif %}
 
+            {% if report.games %}
+            <section class="mb-8" aria-labelledby="r-juegos">
+                <h2 id="r-juegos" class="text-lg font-bold text-gray-900 mb-3">Juegos</h2>
+                <table class="report-table w-full">
+                    <thead>
+                        <tr>
+                            <th scope="col">Juego</th>
+                            <th scope="col" class="num">Partidas</th>
+                            <th scope="col" class="w-2/5 sm:w-1/3">Nota media</th>
+                            <th scope="col" class="num hidden sm:table-cell print:table-cell">Mejor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for g in report.games %}
+                        <tr>
+                            <th scope="row">{{ g.name }}</th>
+                            <td class="num">{{ g.plays }}</td>
+                            <td>{{ barra(g.avg_score) }}</td>
+                            <td class="num hidden sm:table-cell print:table-cell">{{ g.best_score }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <p class="text-sm text-gray-700 mt-2">Las partidas no cuentan como intentos de pronunciación: no entran en el resumen ni en la evolución.</p>
+            </section>
+            {% endif %}
+
             <section aria-labelledby="r-observaciones">
                 <h2 id="r-observaciones" class="text-lg font-bold text-gray-900 mb-3">Observaciones del terapeuta</h2>
                 <!-- En pantalla se puede escribir antes de imprimir (no se guarda); en papel quedan las líneas -->
