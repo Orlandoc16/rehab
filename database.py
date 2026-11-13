@@ -372,6 +372,58 @@ PICTOGRAM_IMAGES = {
     "dizzy": "/static/pictograms/libre/mareado.webp",  # Mareado
     "scared": "/static/pictograms/libre/miedo.webp",  # Miedo
     "sad": "/static/pictograms/libre/triste.webp",  # Triste
+    # CASA (ampliación)
+    "aac_living": "/static/pictograms/libre/sala.webp",  # Sala
+    "aac_kitchen": "/static/pictograms/libre/cocina.webp",  # Cocina
+    "aac_garden": "/static/pictograms/libre/jardin.webp",  # Jardín
+    "aac_sofa": "/static/pictograms/libre/sofa.webp",  # Sofá
+    "aac_table": "/static/pictograms/libre/mesa.webp",  # Mesa
+    "aac_window": "/static/pictograms/libre/ventana.webp",  # Ventana
+    "aac_curtain": "/static/pictograms/libre/cortina.webp",  # Cortina
+    "aac_lamp": "/static/pictograms/libre/lampara.webp",  # Lámpara
+    "aac_wardrobe": "/static/pictograms/libre/armario.webp",  # Armario
+    "aac_fridge": "/static/pictograms/libre/nevera.webp",  # Nevera
+    "aac_microwave": "/static/pictograms/libre/microondas.webp",  # Microondas
+    "aac_washer": "/static/pictograms/libre/lavadora.webp",  # Lavadora
+    "aac_computer": "/static/pictograms/libre/computadora.webp",  # Computadora
+    "aac_clock": "/static/pictograms/libre/reloj.webp",  # Reloj
+    "aac_keys": "/static/pictograms/libre/llave.webp",  # Llaves
+    "aac_mirror": "/static/pictograms/libre/espejo.webp",  # Espejo
+    "aac_pillow": "/static/pictograms/libre/almohada.webp",  # Almohada
+    "aac_glass": "/static/pictograms/libre/vaso.webp",  # Vaso
+    "aac_plate": "/static/pictograms/libre/plato.webp",  # Plato
+    "aac_cutlery": "/static/pictograms/libre/cubiertos.webp",  # Cubiertos
+    # ROPA (ampliación)
+    "aac_pants": "/static/pictograms/libre/pantalon.webp",  # Pantalón
+    "aac_dress": "/static/pictograms/libre/vestido.webp",  # Vestido
+    "aac_skirt": "/static/pictograms/libre/falda.webp",  # Falda
+    "aac_jacket": "/static/pictograms/libre/chaqueta.webp",  # Chaqueta
+    "aac_coat": "/static/pictograms/libre/abrigo.webp",  # Abrigo
+    "aac_robe": "/static/pictograms/libre/bata.webp",  # Bata
+    "aac_socks": "/static/pictograms/libre/calcetines.webp",  # Calcetines
+    "aac_sneakers": "/static/pictograms/libre/zapatillas.webp",  # Zapatillas
+    "aac_hat": "/static/pictograms/libre/sombrero.webp",  # Sombrero
+    "aac_cap": "/static/pictograms/libre/gorra.webp",  # Gorra
+    "aac_scarf": "/static/pictograms/libre/bufanda.webp",  # Bufanda
+    "aac_gloves": "/static/pictograms/libre/guantes.webp",  # Guantes
+    "aac_belt": "/static/pictograms/libre/cinturon.webp",  # Cinturón
+    "aac_tie": "/static/pictograms/libre/corbata.webp",  # Corbata
+    # LUGARES (ampliación)
+    "aac_hospital_place": "/static/pictograms/libre/hospital.webp",  # Hospital
+    "aac_pharmacy": "/static/pictograms/libre/farmacia.webp",  # Farmacia
+    "aac_bank": "/static/pictograms/libre/banco.webp",  # Banco
+    "aac_supermarket": "/static/pictograms/libre/supermercado.webp",  # Supermercado
+    "aac_market": "/static/pictograms/libre/mercado.webp",  # Mercado
+    "aac_restaurant": "/static/pictograms/libre/restaurante.webp",  # Restaurante
+    "aac_cafe": "/static/pictograms/libre/cafeteria.webp",  # Cafetería
+    "aac_cinema": "/static/pictograms/libre/cine.webp",  # Cine
+    "aac_beach": "/static/pictograms/libre/playa.webp",  # Playa
+    "aac_street": "/static/pictograms/libre/calle.webp",  # Calle
+    "aac_gym": "/static/pictograms/libre/gimnasio.webp",  # Gimnasio
+    "aac_school": "/static/pictograms/libre/escuela.webp",  # Escuela
+    "aac_office": "/static/pictograms/libre/oficina.webp",  # Oficina
+    "aac_station": "/static/pictograms/libre/estacion.webp",  # Estación
+    "aac_airport": "/static/pictograms/libre/aeropuerto.webp",  # Aeropuerto
 }
 
 # ==================== DATABASE MANAGER ====================
@@ -501,7 +553,11 @@ class Database:
                 # New Categories
                 ("assistance", "Asistencia", "#FFF8E1", "fa-bell", 7),
                 ("hygiene", "Aseo", "#E0F2F1", "fa-soap", 8),
-                ("responses", "Respuestas", "#14b8a6", "fa-comments", 9)
+                ("responses", "Respuestas", "#14b8a6", "fa-comments", 9),
+                ("aac_animals", "Animales", "#D7CCC8", "fa-paw", 10),
+                ("aac_home", "Casa", "#CFD8DC", "fa-house-chimney", 11),
+                ("aac_clothing", "Ropa", "#E1BEE7", "fa-shirt", 12),
+                ("aac_places", "Lugares", "#C5CAE9", "fa-map-location-dot", 13),
             ]
             
             for cid, label, color, icon, order in cats:
@@ -625,7 +681,81 @@ class Database:
                 ("comb", "hygiene", "Peinarme", "fa-wand-magic-sparkles", {}, "Ayúdame a peinarme"),
                 ("groom", "hygiene", "Afeitarme", "fa-user-tie", {}, "Necesito afeitarme"),
                 ("change_clothes", "hygiene", "Ropa", "fa-shirt", {}, "Quiero cambiarme de ropa"),
-                ("nails", "hygiene", "Cortar Uñas", "fa-scissors", {}, "Necesito cortarme las uñas")
+                ("nails", "hygiene", "Cortar Uñas", "fa-scissors", {}, "Necesito cortarme las uñas"),
+
+                # Categorías que antes sembraba un script aparte (las bases de las clínicas ya las
+                # tienen, con estos mismos textos): ANIMALES, CASA, ROPA y LUGARES
+                ("aac_dog", "aac_animals", "Perro", "fa-dog", {"noun": "perro"}, "Quiero ver al perro"),
+                ("aac_cat", "aac_animals", "Gato", "fa-cat", {"noun": "gato"}, "Quiero ver al gato"),
+                ("aac_fish", "aac_animals", "Pez", "fa-fish", {"noun": "pez"}, "Mira el pez"),
+                ("aac_bird", "aac_animals", "Pájaro", "fa-dove", {"noun": "pájaro"}, "Mira el pájaro"),
+                ("aac_horse", "aac_animals", "Caballo", "fa-horse", {"noun": "caballo"}, "Me gustan los caballos"),
+                ("aac_bed", "aac_home", "Cama", "fa-bed", {"noun": "cama"}, "Quiero ir a la cama"),
+                ("aac_tv", "aac_home", "TV", "fa-tv", {"noun": "televisión"}, "Quiero ver televisión"),
+                ("aac_chair", "aac_home", "Silla", "fa-chair", {"noun": "silla"}, "Necesito una silla"),
+                ("aac_door", "aac_home", "Puerta", "fa-door-open", {"noun": "puerta"}, "Abre la puerta por favor"),
+                ("aac_shirt", "aac_clothing", "Camisa", "fa-shirt", {"noun": "camisa"}, "Quiero ponerme la camisa"),
+                ("aac_shoes", "aac_clothing", "Zapatos", "fa-shoe-prints", {"noun": "zapatos"}, "Necesito mis zapatos"),
+                ("aac_glasses", "aac_clothing", "Lentes", "fa-glasses", {"noun": "lentes"}, "¿Dónde están mis lentes?"),
+                ("aac_park", "aac_places", "Parque", "fa-tree", {"noun": "parque"}, "Vamos al parque"),
+                ("aac_home_place", "aac_places", "Casa", "fa-house", {"noun": "casa"}, "Quiero ir a casa"),
+                ("aac_hospital", "aac_places", "Doctor", "fa-hospital", {"noun": "doctor"}, "Necesito ir al doctor"),
+                ("aac_store", "aac_places", "Tienda", "fa-store", {"noun": "tienda"}, "Vamos a la tienda"),
+
+                # CASA (ampliación)
+                ("aac_living", "aac_home", "Sala", "fa-image", {"noun": "sala"}, "Quiero ir a la sala"),
+                ("aac_kitchen", "aac_home", "Cocina", "fa-image", {"noun": "cocina"}, "Quiero ir a la cocina"),
+                ("aac_garden", "aac_home", "Jardín", "fa-image", {"noun": "jardín"}, "Quiero ir al jardín"),
+                ("aac_sofa", "aac_home", "Sofá", "fa-image", {"noun": "sofá"}, "Quiero sentarme en el sofá"),
+                ("aac_table", "aac_home", "Mesa", "fa-image", {"noun": "mesa"}, "Quiero sentarme a la mesa"),
+                ("aac_window", "aac_home", "Ventana", "fa-image", {"noun": "ventana"}, "Abre la ventana por favor"),
+                ("aac_curtain", "aac_home", "Cortina", "fa-image", {"noun": "cortina"}, "Abre la cortina por favor"),
+                ("aac_lamp", "aac_home", "Lámpara", "fa-image", {"noun": "lámpara"}, "Prende la lámpara por favor"),
+                ("aac_wardrobe", "aac_home", "Armario", "fa-image", {"noun": "armario"}, "Abre el armario por favor"),
+                ("aac_fridge", "aac_home", "Nevera", "fa-image", {"noun": "nevera"}, "Quiero algo de la nevera"),
+                ("aac_microwave", "aac_home", "Microondas", "fa-image", {"noun": "microondas"}, "Calienta la comida por favor"),
+                ("aac_washer", "aac_home", "Lavadora", "fa-image", {"noun": "lavadora"}, "Hay que lavar la ropa"),
+                ("aac_computer", "aac_home", "Computadora", "fa-image", {"noun": "computadora"}, "Quiero usar la computadora"),
+                ("aac_clock", "aac_home", "Reloj", "fa-image", {"noun": "reloj"}, "¿Qué hora es?"),
+                ("aac_keys", "aac_home", "Llaves", "fa-image", {"noun": "llaves"}, "¿Dónde están mis llaves?"),
+                ("aac_mirror", "aac_home", "Espejo", "fa-image", {"noun": "espejo"}, "Necesito el espejo"),
+                ("aac_pillow", "aac_home", "Almohada", "fa-image", {"noun": "almohada"}, "Necesito mi almohada"),
+                ("aac_glass", "aac_home", "Vaso", "fa-image", {"noun": "vaso"}, "Necesito un vaso"),
+                ("aac_plate", "aac_home", "Plato", "fa-image", {"noun": "plato"}, "Necesito un plato"),
+                ("aac_cutlery", "aac_home", "Cubiertos", "fa-image", {"noun": "cubiertos"}, "Necesito los cubiertos"),
+
+                # ROPA (ampliación)
+                ("aac_pants", "aac_clothing", "Pantalón", "fa-image", {"noun": "pantalón"}, "Necesito mi pantalón"),
+                ("aac_dress", "aac_clothing", "Vestido", "fa-image", {"noun": "vestido"}, "Necesito mi vestido"),
+                ("aac_skirt", "aac_clothing", "Falda", "fa-image", {"noun": "falda"}, "Necesito mi falda"),
+                ("aac_jacket", "aac_clothing", "Chaqueta", "fa-image", {"noun": "chaqueta"}, "Necesito mi chaqueta"),
+                ("aac_coat", "aac_clothing", "Abrigo", "fa-image", {"noun": "abrigo"}, "Necesito mi abrigo"),
+                ("aac_robe", "aac_clothing", "Bata", "fa-image", {"noun": "bata"}, "Necesito mi bata"),
+                ("aac_socks", "aac_clothing", "Calcetines", "fa-image", {"noun": "calcetines"}, "Necesito mis calcetines"),
+                ("aac_sneakers", "aac_clothing", "Zapatillas", "fa-image", {"noun": "zapatillas"}, "Necesito mis zapatillas"),
+                ("aac_hat", "aac_clothing", "Sombrero", "fa-image", {"noun": "sombrero"}, "Necesito mi sombrero"),
+                ("aac_cap", "aac_clothing", "Gorra", "fa-image", {"noun": "gorra"}, "Necesito mi gorra"),
+                ("aac_scarf", "aac_clothing", "Bufanda", "fa-image", {"noun": "bufanda"}, "Necesito mi bufanda"),
+                ("aac_gloves", "aac_clothing", "Guantes", "fa-image", {"noun": "guantes"}, "Necesito mis guantes"),
+                ("aac_belt", "aac_clothing", "Cinturón", "fa-image", {"noun": "cinturón"}, "Necesito mi cinturón"),
+                ("aac_tie", "aac_clothing", "Corbata", "fa-image", {"noun": "corbata"}, "Necesito mi corbata"),
+
+                # LUGARES (ampliación)
+                ("aac_hospital_place", "aac_places", "Hospital", "fa-image", {"noun": "hospital"}, "Necesito ir al hospital"),
+                ("aac_pharmacy", "aac_places", "Farmacia", "fa-image", {"noun": "farmacia"}, "Necesito ir a la farmacia"),
+                ("aac_bank", "aac_places", "Banco", "fa-image", {"noun": "banco"}, "Necesito ir al banco"),
+                ("aac_supermarket", "aac_places", "Supermercado", "fa-image", {"noun": "supermercado"}, "Vamos al supermercado"),
+                ("aac_market", "aac_places", "Mercado", "fa-image", {"noun": "mercado"}, "Vamos al mercado"),
+                ("aac_restaurant", "aac_places", "Restaurante", "fa-image", {"noun": "restaurante"}, "Vamos al restaurante"),
+                ("aac_cafe", "aac_places", "Cafetería", "fa-image", {"noun": "cafetería"}, "Vamos a la cafetería"),
+                ("aac_cinema", "aac_places", "Cine", "fa-image", {"noun": "cine"}, "Vamos al cine"),
+                ("aac_beach", "aac_places", "Playa", "fa-image", {"noun": "playa"}, "Vamos a la playa"),
+                ("aac_street", "aac_places", "Calle", "fa-image", {"noun": "calle"}, "Quiero salir a la calle"),
+                ("aac_gym", "aac_places", "Gimnasio", "fa-image", {"noun": "gimnasio"}, "Vamos al gimnasio"),
+                ("aac_school", "aac_places", "Escuela", "fa-image", {"noun": "escuela"}, "Vamos a la escuela"),
+                ("aac_office", "aac_places", "Oficina", "fa-image", {"noun": "oficina"}, "Necesito ir a la oficina"),
+                ("aac_station", "aac_places", "Estación", "fa-image", {"noun": "estación"}, "Vamos a la estación"),
+                ("aac_airport", "aac_places", "Aeropuerto", "fa-image", {"noun": "aeropuerto"}, "Vamos al aeropuerto"),
             ]
             
             for pid, cid, label, icon, gram, phrase in items:

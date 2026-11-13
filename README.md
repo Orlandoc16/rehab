@@ -73,6 +73,9 @@ Nueve juegos en `/games`, agrupados por lo que trabajan:
   debajo del 50 %. El terapeuta puede cambiarla antes de empezar.
 - **El micrófono ayuda, no juzga**: en los juegos de hablar siempre hay un botón «La dije bien» para
   el paciente o quien le acompaña, así que funcionan aunque no haya reconocimiento de voz.
+- **Reconocimiento mejorado opcional**: la misma opción de la práctica (por paciente y con su
+  consentimiento) se puede activar desde `/games`; el juego da por buena la palabra si la oye el
+  reconocimiento local o el del navegador. «Voz larga» no lo usa.
 - **Repaso**: «¿Qué es?» y «Palabras seguidas» sacan más a menudo las palabras que el paciente falla
   en la práctica.
 - **Sin rojo ni tachados**: un fallo se señala con suavidad y se puede seguir probando.

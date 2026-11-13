@@ -180,24 +180,7 @@
                     </div>
                 </div>
 
-                <dialog id="cloud-consent-dialog" class="rounded-2xl p-0 max-w-lg w-[calc(100%-2rem)] shadow-2xl backdrop:bg-black/40">
-                    <form method="dialog" class="p-6 text-left">
-                        <h3 class="text-xl font-bold text-gray-800 mb-3">Reconocimiento de voz mejorado</h3>
-                        <p class="text-gray-700 mb-3">Además del reconocimiento de este equipo, la voz del paciente se enviará al
-                            servicio de reconocimiento del navegador (<strong>Google</strong> en Chrome, Microsoft en Edge), que
-                            entiende mejor las palabras. La app se queda con el mejor de los dos resultados.</p>
-                        <p class="text-gray-700 mb-4">Actívalo solo si el paciente (o su representante) <strong>ha dado su
-                            consentimiento</strong>. Se guarda la fecha del consentimiento y se puede desactivar cuando se quiera.</p>
-                        <label class="flex items-start gap-3 mb-6 text-gray-800 font-medium">
-                            <input type="checkbox" id="cloud-consent-check" class="mt-1 w-5 h-5">
-                            El paciente ha dado su consentimiento
-                        </label>
-                        <div class="flex justify-end gap-3">
-                            <button value="cancel" class="px-5 py-3 rounded-xl bg-gray-100 text-gray-800 font-semibold hover:bg-gray-200">Cancelar</button>
-                            <button value="ok" id="cloud-consent-ok" disabled class="px-5 py-3 rounded-xl bg-primary text-white font-semibold disabled:opacity-40">Activar</button>
-                        </div>
-                    </form>
-                </dialog>
+                {% include "partials/_cloud_consent.html" %}
 
                 <dialog id="profile-dialog" class="rounded-2xl p-0 max-w-lg w-[calc(100%-2rem)] shadow-2xl backdrop:bg-black/40">
                     <form method="dialog" class="p-6 text-left">

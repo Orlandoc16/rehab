@@ -70,6 +70,14 @@
         <!-- Juegos: las tarjetas las pinta games.js (grupos, última nota y dificultad) -->
         <div id="games-list"></div>
 
+        <!-- Reconocimiento mejorado (nube): la misma opción de la práctica, por paciente y con consentimiento -->
+        <div id="cloud-speech-box" class="hidden bg-white rounded-2xl shadow-lg p-5 mb-10 text-gray-700 flex flex-wrap items-center justify-between gap-3">
+            <p><i class="fas fa-microphone mr-2 text-teal-700" aria-hidden="true"></i><span id="cloud-speech-label"></span></p>
+            <button type="button" id="cloud-speech-btn"
+                class="px-4 py-2 min-h-[48px] rounded-lg border border-gray-300 font-medium hover:border-primary hover:text-primary transition"></button>
+            <p id="cloud-speech-error" class="hidden w-full text-red-700" role="alert">No se pudo guardar el ajuste. Inténtalo de nuevo.</p>
+        </div>
+
         <!-- Achievements Section -->
         <h3 class="text-2xl font-bold text-gray-800 mb-6">
             <i class="fas fa-trophy text-yellow-500 mr-2"></i>Logros
@@ -111,6 +119,7 @@
         </div>
     </div>
 
+    {% include "partials/_cloud_consent.html" %}
     <script src="{{ asset('js/games.js') }}"></script>
 <div aria-live="polite" aria-atomic="true" class="visually-hidden" id="anunciador"></div><script>window.anunciar = t => { const el = document.getElementById('anunciador'); if (el) el.textContent = t; };</script>
 </body>

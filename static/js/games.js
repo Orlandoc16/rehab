@@ -549,6 +549,93 @@ function markAnswer(btn, ok, group) {
     }
 }
 
+// ---------- reconocimiento mejorado (navegador), como en la práctica ----------
+// Opcional, por paciente y con consentimiento (lo guarda el servidor). Si está activo, el navegador
+// reconoce la voz EN PARALELO a la grabación y el juego da por buena la palabra si la oyó
+// cualquiera de los dos. Sin red o sin soporte (Firefox, la app Android) queda el reconocimiento local.
+const BrowserRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+let cloudSpeech = false;
+
+async function loadSpeechSettings() {
+    try {
+        const res = await fetch('/api/speech-settings');
+        if (res.ok) cloudSpeech = !!(await res.json()).cloud_speech;
+    } catch (e) { /* sin red: reconocimiento local */ }
+    renderCloudSpeech();
+}
+
+function renderCloudSpeech() {
+    const box = document.getElementById('cloud-speech-box');
+    if (!box || !BrowserRecognition) return;
+    box.classList.remove('hidden');
+    document.getElementById('cloud-speech-label').textContent = cloudSpeech
+        ? 'Reconocimiento mejorado activado para este paciente: los juegos entienden mejor lo que se dice.'
+        : 'Los juegos usan el reconocimiento local (la voz no sale de este equipo).';
+    document.getElementById('cloud-speech-btn').textContent = cloudSpeech ? 'Desactivar' : 'Activar reconocimiento mejorado';
+}
+
+async function setCloudSpeech(on) {
+    const error = document.getElementById('cloud-speech-error');
+    error.classList.add('hidden');
+    try {
+        const res = await fetch('/api/speech-settings', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cloud_speech: on }),
+        });
+        if (!res.ok) throw new Error(res.statusText);
+        cloudSpeech = !!(await res.json()).cloud_speech;
+    } catch (e) {
+        error.classList.remove('hidden');
+    }
+    renderCloudSpeech();
+}
+
+function initCloudSpeech() {
+    const dialog = document.getElementById('cloud-consent-dialog');
+    const check = document.getElementById('cloud-consent-check');
+    const btn = document.getElementById('cloud-speech-btn');
+    if (!dialog || !check || !btn) return;
+    const ok = document.getElementById('cloud-consent-ok');
+    btn.addEventListener('click', () => {
+        if (cloudSpeech) { setCloudSpeech(false); return; }
+        check.checked = false;
+        ok.disabled = true;
+        dialog.returnValue = '';
+        dialog.showModal();
+    });
+    check.addEventListener('change', () => { ok.disabled = !check.checked; });
+    dialog.addEventListener('close', () => { if (dialog.returnValue === 'ok' && check.checked) setCloudSpeech(true); });
+    loadSpeechSettings();
+}
+
+/** Reconocimiento del navegador durante una grabación; null si no está activado o no hay red */
+function startBrowserRecognition() {
+    if (!cloudSpeech || !BrowserRecognition || !navigator.onLine) return null;
+    const br = new BrowserRecognition();
+    br.lang = (navigator.language || '').toLowerCase().startsWith('es') ? navigator.language : 'es-ES';
+    br.continuous = true;        // no se corta en la primera pausa: se detiene con la grabación
+    br.interimResults = false;
+    br.maxAlternatives = 1;
+    let heard = '';
+    const done = new Promise((resolve) => {
+        br.onresult = (event) => {
+            heard = Array.from(event.results).filter((x) => x.isFinal).map((x) => x[0].transcript.trim()).join(' ').trim();
+        };
+        br.onerror = (event) => { console.warn('Reconocimiento del navegador:', event.error); };
+        br.onend = () => resolve();
+    });
+    try { br.start(); } catch (e) { return null; }
+    return {
+        /** Lo que oyó (espera su resultado como mucho 2 s); '' si se descarta */
+        async finish(discard = false) {
+            try { discard ? br.abort() : br.stop(); } catch (e) { /* ya parado */ }
+            if (discard) return '';
+            await Promise.race([done, new Promise((r) => setTimeout(r, 2000))]);
+            return heard;
+        },
+    };
+}
+
 // ---------- micrófono: escuchar una palabra ----------
 const MIC_ERRORS = {
     https: 'El micrófono no está disponible en este navegador.',
@@ -593,8 +680,9 @@ function volumeMeter(stream) {
 }
 
 /**
- * Graba hasta que la persona calla (o maxMs) y devuelve lo transcrito.
- * @returns {Promise<{text: string} | {error: string} | null>} null si se canceló o ya había otra
+ * Graba hasta que la persona calla (o maxMs) y devuelve lo transcrito: `text` es lo que se muestra
+ * («Oí …») y `texts`, todo lo oído (reconocimiento local y, si está activado, el del navegador).
+ * @returns {Promise<{text: string, texts: string[]} | {error: string} | null>} null si se canceló o ya había otra
  */
 async function listen({ prompt = '', maxMs = 5000, onState = () => {} } = {}) {
     if (rec || micStarting) return null;
@@ -614,6 +702,7 @@ async function listen({ prompt = '', maxMs = 5000, onState = () => {} } = {}) {
     const stopped = new Promise((resolve) => { recorder.onstop = resolve; });
     recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
     recorder.start();
+    const browser = startBrowserRecognition();
     onState('listening');
 
     // Para sola al callar (como en la práctica) o al llegar a maxMs
@@ -634,19 +723,27 @@ async function listen({ prompt = '', maxMs = 5000, onState = () => {} } = {}) {
     clearInterval(r.timer);
     if (r.meter) r.meter.close();
     if (rec === r) rec = null;
-    if (r.cancelled || s !== session) return null;
-    if (!r.heard) return { error: 'silence' };
+    if (r.cancelled || s !== session || !r.heard) {
+        if (browser) browser.finish(true);
+        return r.cancelled || s !== session ? null : { error: 'silence' };
+    }
     onState('thinking');
+    const browserHeard = browser ? browser.finish() : Promise.resolve('');
     const form = new FormData();
     form.append('audio_file', new Blob(chunks, { type: recorder.mimeType || 'audio/webm' }), 'voz.webm');
     if (prompt) form.append('initial_prompt', prompt);
     try {
         const res = await fetch('/api/transcribe', { method: 'POST', body: form });
         if (!res.ok) throw new Error(res.statusText);
-        const data = await res.json();
-        return s === session ? { text: data.transcription || '' } : null;
+        const local = ((await res.json()).transcription || '').trim();
+        const cloud = await browserHeard;
+        if (s !== session) return null;
+        return { text: local || cloud, texts: [local, cloud].filter(Boolean) };
     } catch (e) {
-        return s === session ? { error: 'server' } : null;
+        // Sin reconocimiento local, vale lo que oyó el navegador
+        const cloud = await browserHeard;
+        if (s !== session) return null;
+        return cloud ? { text: cloud, texts: [cloud] } : { error: 'server' };
     }
 }
 
@@ -715,7 +812,7 @@ ACTIONS['say-mic'] = async () => {
     setMicButton('idle');
     if (!res) return;
     if (res.error) { feedback('say-feedback', `${MIC_ERRORS[res.error]} Si la dijiste, pulsa el botón verde.`, false); return; }
-    if (ctx.accepts(res.text)) finishSay(true, 'voice');
+    if (res.texts.some((t) => ctx.accepts(t))) finishSay(true, 'voice');
     else feedback('say-feedback', res.text ? `Oí «${res.text}». Prueba otra vez, o pulsa el botón verde si la dijiste bien.` : 'No te entendí. Prueba otra vez.', false);
 };
 ACTIONS['say-ok'] = () => finishSay(true, 'manual');
@@ -1552,7 +1649,7 @@ ACTIONS['maze-mic'] = async () => {
     });
     if (!res || maze !== playing || maze.done) return;
     if (res.error) { renderMaze(`${MIC_ERRORS[res.error]} Puedes usar las flechas.`); return; }
-    const dir = parseDirection(res.text);
+    const dir = res.texts.map(parseDirection).find(Boolean);
     if (dir) moveMaze(dir);
     else renderMaze(res.text ? `Oí «${res.text}». Di: Arriba, Abajo, Izquierda o Derecha.` : 'No te entendí. Inténtalo otra vez.');
 };
@@ -1565,5 +1662,6 @@ document.addEventListener('DOMContentLoaded', () => {
     loadDailyChallenge();
     loadAchievements();
     loadReview();
+    initCloudSpeech();
     ensurePool().catch((e) => console.warn('No se pudieron cargar las palabras de los juegos:', e));
 });
